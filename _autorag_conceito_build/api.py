@@ -99,10 +99,10 @@ def submit(kind, function):
             write_json(project.root/"jobs"/(job_id+".json"), snapshot)
             result = function()
             with job_lock:
-                record.update(result=result, status="succeeded")
+                record.update(result=result, status="succeeded", finished_at=now())
         except Exception as exc:
             with job_lock:
-                record.update(status="failed", error=str(exc))
+                record.update(status="failed", error=str(exc), finished_at=now())
         finally:
             with job_lock:
                 record["finished_at"] = now()

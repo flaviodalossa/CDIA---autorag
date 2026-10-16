@@ -250,6 +250,8 @@ class WebAPITests(unittest.TestCase):
             job = self.wait_for_job(self.client.post("/api/search", json={
                 "query": "Consulta", "profile_id": "pf_test",
             }))
+        # A terminal API snapshot can be visible before its final disk write.
+        self.worker.shutdown(wait=True)
         self.assertEqual(job["status"], "failed")
         self.assertEqual(job["error"], "Categorias sem embeddings atuais.")
         self.assertEqual(read_json(self.project.root/"jobs"/(job["job_id"]+".json"))["status"], "failed")
