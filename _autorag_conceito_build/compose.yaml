@@ -1,0 +1,16 @@
+services:
+  autorag:
+    build: .
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      AUTORAG_ENV: production
+      AUTORAG_PROJECT_DIR: /data
+      AUTORAG_API_TOKEN: ${AUTORAG_API_TOKEN:?Defina AUTORAG_API_TOKEN}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    volumes:
+      - autorag-data:/data
+    restart: unless-stopped
+volumes:
+  autorag-data:
