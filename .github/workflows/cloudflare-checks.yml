@@ -66,6 +66,8 @@ jobs:
           PY
       - name: Build Python and pinned Ollama and MiniLM CPU models
         run: docker build -f cloudflare/Dockerfile -t autorag-cloudflare:ci .
+      - name: Reclaim unused build cache while preserving the tagged deployment image
+        run: docker builder prune --all --force
       - name: Keep the image below the standard-1 8 GB disk limit
         run: |
           python - <<'PY'

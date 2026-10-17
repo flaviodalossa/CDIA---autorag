@@ -85,9 +85,38 @@ class DockerPushTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory, \
                 patch.object(docker_push.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, stdout="100000\n")) as run, \
                 patch.object(docker_push.shutil, "disk_usage", return_value=type("Disk", (), {"free": 0})()):
-            with self.assertRaisesRegex(docker_push.PushError, "disk space"):
+            with self.assertRaisesRegex(docker_push.PushError, "disk space") as failure:
                 docker_push.push_image("docker", "regctl", "registry.cloudflare.com/account/image:tag", directory)
-        self.assertEqual(run.call_count, 1)
+        self.assertEqual(run.call_count, 2)
+        self.assertEqual(run.call_args.args[0], ['docker', 'builder', 'prune', '--all', '--force'])
+        self.assertIn('image_bytes=100000', str(failure.exception))
+        self.assertIn('free_bytes=0', str(failure.exception))
+        self.assertIn(f'required_bytes={100000 + docker_push.RESERVE_BYTES}', str(failure.exception))
+
+    def test_unused_build_cache_is_reclaimed_only_under_disk_pressure(self):
+        commands = []
+        def run(arguments, **kwargs):
+            commands.append(arguments)
+            return subprocess.CompletedProcess(arguments, 0, stdout='1024\n')
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(docker_push.subprocess, 'run', side_effect=run), \
+                patch.object(docker_push.shutil, 'disk_usage', side_effect=[
+                    type('Disk', (), {'free': 0})(), type('Disk', (), {'free': 10**10})()]):
+            docker_push.push_image('docker', 'regctl', 'registry.cloudflare.com/account/image:tag', directory)
+        self.assertEqual(commands[1], ['docker', 'builder', 'prune', '--all', '--force'])
+        self.assertEqual(commands[2][1:4], ['image', 'save', '--output'])
+        self.assertEqual(commands[-1][1:4], ['image', 'import', 'registry.cloudflare.com/account/image:tag'])
+        self.assertFalse(any(command[1:3] in [['system', 'prune'], ['image', 'prune'], ['volume', 'prune']] for command in commands))
+
+    def test_failed_cache_cleanup_prevents_export_or_upload(self):
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(docker_push.subprocess, 'run', side_effect=[
+                    subprocess.CompletedProcess([], 0, stdout='1024\n'),
+                    subprocess.CompletedProcess([], 2)]) as run, \
+                patch.object(docker_push.shutil, 'disk_usage', return_value=type('Disk', (), {'free': 0})()):
+            with self.assertRaisesRegex(docker_push.PushError, 'build-cache cleanup.*2'):
+                docker_push.push_image('docker', 'regctl', 'registry.cloudflare.com/account/image:tag', directory)
+        self.assertEqual(run.call_count, 2)
 
     def test_uploader_failure_never_reports_success(self):
         with tempfile.TemporaryDirectory() as directory, \

@@ -37,6 +37,24 @@ def run_step(arguments, environment, stage):
         raise PushError(f"The {stage} step failed with exit code {result.returncode}.")
 
 
+def ensure_archive_space(docker, environment, directory, image_bytes):
+    required_bytes = image_bytes + RESERVE_BYTES
+    free_bytes = shutil.disk_usage(directory).free
+    print(f"Registry archive space: image_bytes={image_bytes} free_bytes={free_bytes} required_bytes={required_bytes}.", flush=True)
+    if free_bytes >= required_bytes:
+        return
+    # BuildKit retains the intermediate model-assets and dependency stages.
+    # Reclaim only unused build cache; the tagged final image, other images,
+    # containers, volumes and the Docker credential configuration are retained.
+    print("Reclaiming unused Docker build cache before exporting the tagged image.", flush=True)
+    run_step([docker, "builder", "prune", "--all", "--force"], environment, "build-cache cleanup")
+    free_bytes = shutil.disk_usage(directory).free
+    print(f"Registry archive space after cache cleanup: image_bytes={image_bytes} free_bytes={free_bytes} required_bytes={required_bytes}.", flush=True)
+    if free_bytes < required_bytes:
+        raise PushError("The build host has insufficient temporary disk space for the image archive "
+                        f"(image_bytes={image_bytes}, free_bytes={free_bytes}, required_bytes={required_bytes}).")
+
+
 def push_image(docker, binary, image, directory):
     directory = Path(directory)
     environment = os.environ.copy()
@@ -53,8 +71,7 @@ def push_image(docker, binary, image, directory):
         raise PushError("Unable to determine image archive space requirements.") from None
     if inspected.returncode or image_bytes < 1:
         raise PushError("Unable to inspect the image before its registry upload.")
-    if shutil.disk_usage(directory).free < image_bytes + RESERVE_BYTES:
-        raise PushError("The build host has insufficient temporary disk space for the image archive.")
+    ensure_archive_space(docker, environment, directory, image_bytes)
     archive = directory / "image.tar"
     print("Preparing a temporary Docker archive for the chunked registry upload.", flush=True)
     run_step([docker, "image", "save", "--output", str(archive), image], environment, "image export")
