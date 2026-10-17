@@ -23,6 +23,42 @@ jobs:
       - run: pnpm --dir cloudflare run build
       - run: pnpm --dir cloudflare run check
       - run: pnpm --dir cloudflare test
+      - name: Validate pinned registry uploader CLI without registry access
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+          import tempfile
+          from cloudflare.deploy import install_regctl
+          from cloudflare.docker_push import CHUNK_BYTES, REGISTRY
+
+          with tempfile.TemporaryDirectory(prefix='autorag-regctl-cli-') as temporary:
+              root = Path(temporary)
+              binary = install_regctl(root / 'regctl')
+              docker_config = root / 'empty-docker'
+              docker_config.mkdir()
+              env = os.environ.copy()
+              env.update({'REGCTL_CONFIG': str(root / 'regctl.json'),
+                          'DOCKER_CONFIG': str(docker_config),
+                          'HTTP_PROXY': 'http://127.0.0.1:9',
+                          'HTTPS_PROXY': 'http://127.0.0.1:9', 'NO_PROXY': ''})
+              for args in [
+                  ['config', 'set', '--docker-cred'],
+                  ['config', 'set', '--blob-limit', str(CHUNK_BYTES * 2)],
+                  ['registry', 'set', REGISTRY, '--blob-max', '1',
+                   '--blob-chunk', str(CHUNK_BYTES), '--req-concurrent', '1', '--skip-check'],
+              ]:
+                  subprocess.run([str(binary), *args], env=env, check=True)
+              config = json.loads((root / 'regctl.json').read_text())
+              host = config['hosts'][REGISTRY]
+              assert config['incDockerCred'] is True
+              assert config['blobLimit'] == CHUNK_BYTES * 2
+              assert host['blobChunk'] == CHUNK_BYTES
+              assert host['blobMax'] == 1 and host['reqConcurrent'] == 1
+          print('Pinned regctl CLI settings verified without a registry login or request.')
+          PY
       - name: Build Python and pinned Ollama CPU models
         run: docker build -f cloudflare/Dockerfile -t autorag-cloudflare:ci .
       - name: Keep the image below the standard-1 8 GB disk limit

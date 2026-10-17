@@ -10,7 +10,7 @@ Containers exige Workers Paid, atualmente US$ 5/mês mais consumo. R2 e requisi�
 2. Conecte o repositório em Workers & Pages > Create application > Import a repository, usando o produto Workers. Use a branch main.
 3. Use a raiz de build _autorag_conceito_build, que contém o contexto completo do Dockerfile. O nome do Worker deve ser autorag-normativo.
 4. Build command: cd cloudflare && corepack pnpm install --frozen-lockfile && corepack pnpm run build
-5. Deploy command: cd cloudflare && corepack pnpm exec wrangler deploy
+5. Deploy command: cd cloudflare && python3 deploy.py
 6. Cadastre AUTORAG_API_TOKEN como segredo de runtime do Worker, com pelo menos 32 caracteres aleatórios. Use esse mesmo token nas configurações da interface. O nome existente api_token_autorag também é aceito como alias; se ambos estiverem cadastrados, AUTORAG_API_TOKEN prevalece. O Worker repassa o valor resolvido ao backend com o nome canônico. Cadastre OPENAI_API_KEY ou GEMINI_API_KEY como segredo de runtime se usar esses provedores. Não coloque as chaves em variáveis públicas, no código ou nos assets.
 7. Execute o build de produção. Workers Builds consegue construir o Dockerfile; Docker local é necessário somente para desenvolvimento/deploy local.
 8. Aguarde a primeira provisão do container. Abra a URL workers.dev e verifique Configurações > Conexão. Uma resposta autenticada de /api/status confirma que o backend está atendendo.
@@ -62,3 +62,9 @@ O workflow de CI verifica tamanho descompactado da imagem menor que 8 GB e execu
 - Os dois modelos Ollama estão fixados na imagem. Novos modelos requerem atualizar o manifesto e reconstruir a imagem; downloads feitos apenas durante uma sessão não são persistidos. Os perfis de API OpenAI/Gemini funcionam com os secrets de runtime correspondentes.
 - Interrupções durante uma operação podem exigir reenvio. Publicações da aplicação devem acontecer com a fila ociosa.
 - O limite max_instances=1 contém a escala desta implantação; consumo de CPU, memória, disco, R2 e duração dos trabalhos continua sendo cobrado conforme uso.
+
+## Envio da imagem em blocos
+
+O comando `python3 deploy.py` usa o Wrangler com o uploader oficial regctl 0.11.6, fixado por SHA256. Ele envia as camadas ao registro Cloudflare em blocos de 8 MiB, com uma requisição por vez, para evitar timeouts no envio dos pesos. A autenticação continua sendo a configuração Docker criada pelo Wrangler com o token de build já autorizado. Não são criadas novas credenciais.
+
+O ajuste atua somente no ambiente Linux AMD64 de build. Os pesos, seus digests, o formato da imagem e o runtime permanecem os mesmos. O TAR temporário da imagem é removido após o envio; regctl e suas configurações ficam em diretórios temporários fora do contexto da aplicação. Para deploy local direto, o comando Wrangler convencional continua disponível.

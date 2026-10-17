@@ -292,12 +292,27 @@
     if (Array.isArray(data.documents)) return data.documents;
     return list(data.documentos);
   }
+  function previewTopicMarkup(topic) {
+    const original = topic.conteudo_fonte || topic.text || '';
+    const summary = topic.resumo || topic.summary || '';
+    const answer = topic.resposta_sintese || topic.answer || '';
+    const rawQuestions = topic.perguntas_sugeridas || topic.suggested_questions || [];
+    const questions = Array.isArray(rawQuestions) ? rawQuestions : typeof rawQuestions === 'string' ? rawQuestions.split(/\r?\n/).filter(Boolean) : [];
+    const provenance = topic.processamento?.llm || topic.provenance || {};
+    const provenanceText = [provenance.provider,provenance.model,provenance.prompt_version ? 'prompt ' + provenance.prompt_version : ''].filter(Boolean).join(' · ');
+    return '<section class="preview-topic"><h4>' + esc(topic.titulo || topic.title || topic.topico_id || 'Tópico') + '</h4>' +
+      (provenanceText ? '<p class="preview-provenance">Preparação: ' + esc(provenanceText) + '</p>' : '') +
+      '<dl><dt>Resumo</dt><dd>' + (summary ? esc(summary) : '<span class="preview-missing">Não fornecido nesta representação.</span>') + '</dd>' +
+      '<dt>Resposta-síntese</dt><dd>' + (answer ? esc(answer) : '<span class="preview-missing">Não fornecida nesta representação.</span>') + '</dd></dl>' +
+      '<h5>Perguntas sugeridas</h5>' + (questions.length ? '<ul>' + questions.map(question => '<li>' + esc(question) + '</li>').join('') + '</ul>' : '<p class="preview-missing">Nenhuma pergunta fornecida.</p>') +
+      (original ? '<details class="preview-original"><summary>Conferir texto original</summary><p>' + esc(original) + '</p></details>' : '') + '</section>';
+  }
   function renderPreview(data) {
     const documents = previewDocuments(data);
     $('preview-count').textContent = documents.length + (documents.length === 1 ? ' DOCUMENTO' : ' DOCUMENTOS');
     $('preview-documents').innerHTML = documents.map((doc, index) => {
       const topics = list(doc.topics || doc.topicos); const content = doc.text || doc.conteudo || doc.conteudo_fonte || '';
-      return '<article class="preview-document"><h3>' + esc(doc.title || doc.titulo || doc.nome_documento || 'Documento ' + (index + 1)) + '</h3>' + sourceMarkup(doc) + '<p class="preview-text">' + esc(content) + '</p>' + (topics.length ? '<details><summary>' + topics.length + ' tópicos extraídos · ver amostra</summary>' + topics.slice(0, 8).map(topic => '<p><strong>' + esc(topic.title || topic.titulo || topic.topico_id || 'Tópico') + '</strong><br>' + esc(topic.text || topic.conteudo_fonte || topic.resumo || '') + '</p>').join('') + '</details>' : '') + (doc.metadados || doc.metadata ? '<details><summary>Metadados extraídos</summary><pre>' + esc(JSON.stringify(doc.metadata || doc.metadados, null, 2)) + '</pre></details>' : '') + '</article>';
+      return '<article class="preview-document"><h3>' + esc(doc.title || doc.titulo || doc.nome_documento || 'Documento ' + (index + 1)) + '</h3>' + sourceMarkup(doc) + '<p class="preview-text">' + esc(content) + '</p>' + (topics.length ? '<details><summary>' + topics.length + ' tópicos extraídos · revisar amostra de até 8</summary>' + topics.slice(0, 8).map(previewTopicMarkup).join('') + '</details>' : '') + (doc.metadados || doc.metadata ? '<details><summary>Metadados extraídos</summary><pre>' + esc(JSON.stringify(doc.metadata || doc.metadados, null, 2)) + '</pre></details>' : '') + '</article>';
     }).join('') || '<p class="empty-inline">O serviço não retornou documentos para revisão. Consulte os avisos e revise as fontes.</p>';
     $('review-section').hidden = false; $('commit-button').textContent = 'Incorporar à base ✓'; $('review-note').textContent = 'A base será atualizada ao incorporar.'; $('commit-button').disabled = (!documents.length && !Number(data.documents || 0)) || !data.preview_id;
     $('step-review').classList.add('active'); $('step-sources').classList.remove('active');
