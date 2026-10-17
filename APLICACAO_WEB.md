@@ -1,117 +1,77 @@
-# AutoRAG Web — primeira versão
+# AutoRAG Web v0.2
 
-A aplicação web fica em `_autorag_conceito_build`. O aplicativo desktop, a CLI, os oito tipos de vetores, perfis separados por modelo, índices versionados e os experimentos anteriores continuam disponíveis.
+A aplicação fica em _autorag_conceito_build. A versão web compara até três experimentos por entrada, salva configurações reutilizáveis, registra avaliações opcionais de LLM e permite baixar os resultados e os vetores numéricos usados. Os aplicativos desktop, CLI e experimentos anteriores continuam disponíveis.
 
-## Executar localmente
+## Consulta e laboratório
 
-No Windows, abra `_autorag_conceito_build/09_abrir_web.bat`. Alternativa, dentro da pasta da aplicação:
+Sem experimentos selecionados no laboratório, a consulta usa distância cosseno sobre os vetores de conteudo_fonte, com Top K 6 e o perfil ativo do projeto. Não há agrupamento nesse padrão.
 
-```powershell
+No laboratório, cada experimento tem nome, modelos de embeddings, categorias e parâmetros próprios. Os métodos são:
+
+- Similaridade vetorial: ordena cada tópico pela menor distância dos seus vetores selecionados.
+- UMAP + HDBSCAN: inclui a consulta no agrupamento, seleciona tópicos pela cobertura de categorias distintas no grupo da consulta e ordena o conjunto pela distância no espaço original. Ruído e dados insuficientes são informados; a recuperação do conteúdo original continua disponível.
+- Laboratório de vetores: usa a média das distâncias dos vetores selecionados de cada tópico. Permite cobertura parcial e mínimos de similaridade por categoria.
+
+Distâncias disponíveis: cosseno, euclidiana e Manhattan. Top K, similaridade cosseno mínima, distância máxima, profundidade da fusão, semente e parâmetros UMAP/HDBSCAN são ajustáveis. O dendrograma é opcional. Os filtros atuam em cada modelo antes de Top K e fusão.
+
+Escolha categorias comuns aos modelos ou personalize categorias por modelo, como resumo com Gemma e perguntas com MiniLM. Modelos com dimensões distintas são consultados separadamente; os tópicos são combinados por Reciprocal Rank Fusion (RRF, k=60). A pontuação RRF não é uma distância vetorial. Os escores e evidências de cada modelo acompanham o resultado.
+
+É necessário gerar os índices das categorias escolhidas em Preparar base. Um modelo sem índice adequado produz um erro identificado no experimento, preservando os demais resultados. A fusão não declara sucesso com apenas parte dos modelos solicitados.
+
+## Salvar, reutilizar e reproduzir
+
+1. Edite até três experimentos. Guardar alterações atualiza o rascunho.
+2. Dê um nome ao conjunto e use Salvar configuração para disponibilizá-lo no projeto. Configurações JSON também podem ser baixadas e importadas.
+3. Usar estes experimentos na consulta salva os parâmetros que serão utilizados em Consulta. Usar consulta padrão restaura a similaridade vetorial do conteúdo original. A seleção é compartilhada pelos usuários do mesmo projeto.
+4. Execute uma comparação com uma entrada comum. Configurações, resultados, referências dos índices e avaliações são salvos.
+5. Reusar configuração aplica os parâmetros à base corrente. Reproduzir recuperação salva utiliza a base, os índices e os vetores de entrada registrados na execução original, sem novas chamadas de embeddings ou LLM. Hashes e disponibilidade dos artefatos são verificados. Diferenças de versões de bibliotecas são informadas.
+
+Os retornos podem ser baixados em JSON, CSV ou JSONL, e a configuração pode ser exportada separadamente. Os registros preservam a proveniência dos perfis, revisões de índices, parâmetros e vetor da entrada.
+
+Baixar vetores e métricas (ZIP) fornece os vetores numéricos da entrada e dos correspondentes recuperados, organizados por perfil/dimensão em NPZ, com manifesto JSON e métricas CSV. As associações identificam experimento, tópico, categoria, vetor, posição e pontuações de recuperação/fusão. Os arquivos NPZ não exigem pickle. São incluídos os vetores dos retornos e baselines registrados, sem regenerar embeddings.
+
+## Análise automática opcional
+
+A análise começa desmarcada. Quando ativada, o modelo recebe a entrada e os conteúdos originais retornados, classifica pertinência, comenta e atribui prioridade global de utilidade. Conteúdos repetidos entre experimentos são avaliados uma única vez e recebem a mesma anotação.
+
+O padrão é OpenAI gpt-6-luna. Também é possível escolher outro modelo OpenAI, um modelo generativo Ollama local/remoto ou uma API compatível. Credenciais e URLs dos provedores são configuradas no servidor, nunca nos arquivos exportados. Chamadas de API podem ter cobrança.
+
+Cada linha registra classificação, comentário, prioridade, provedor/modelo e hashes de proveniência. Falhas deixam os conteúdos sem classificação, mantêm as recuperações e registram a mensagem de erro. Não se transforma erro em “não pertinente”.
+
+Limites de avaliação: até 20 retornos por experimento, 60 no conjunto, 12.000 caracteres por conteúdo/entrada e 120.000 no total. Conteúdos não são truncados silenciosamente; uma entrada acima dos limites mantém a recuperação e informa que a análise não foi concluída.
+
+## Preparar e importar uma base
+
+Em Preparar base, forneça URLs HTTPS públicas, caminhos autorizados do servidor ou envie PDF, TXT, Markdown, HTML e DOCX. Metadados são opcionais e editáveis, sem planilha obrigatória. O pré-processamento pode usar LLM para perguntas, respostas e resumo; o modo extrativo funciona sem LLM. Revise a prévia e incorpore os documentos antes de gerar os vetores por perfil/categoria. PDFs digitalizados exigem OCR prévio.
+
+Importar base já preparada aceita o JSON estruturado e um NPZ legado opcional. Preserva IDs, textos, metadados, representações e tópicos inativos. A importação não chama LLM. Índices de modelos diferentes ficam separados; um perfil nunca reutiliza coordenadas de outro modelo.
+
+Caminhos locais referem-se ao servidor. AUTORAG_ALLOWED_SOURCE_ROOTS habilita diretórios autorizados; arquivos do computador de quem usa a interface devem ser enviados por upload. URLs privadas/localhost são recusadas para ingestão. Limites existentes: 20 MiB por documento, 25 MiB por requisição e 30 fontes por lote.
+
+## Execução local e acesso
+
+No Windows, abra _autorag_conceito_build/09_abrir_web.bat. Alternativa na pasta da aplicação:
+
+~~~powershell
 py -3 -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements-web.txt
 .venv\Scripts\python.exe -m uvicorn api:app --host 127.0.0.1 --port 8766 --workers 1
-```
+~~~
 
-Abra http://127.0.0.1:8766. O lançador reutiliza o ambiente virtual existente quando disponível. A porta local padrão é 8766, alterável por `AUTORAG_PORT` no lançador. O serviço usa os dados e índices existentes da pasta da aplicação. Para um projeto vazio ou outro órgão, defina `AUTORAG_PROJECT_DIR` com uma pasta separada antes de iniciar. Não copie chaves para o navegador. As variáveis de configuração do backend precisam estar no ambiente do processo; o arquivo `.env.example` é referência e não é carregado automaticamente pelo Uvicorn. O resolvedor existente continua aceitando chaves de modelos em `.env.local`.
+Abra http://127.0.0.1:8766. AUTORAG_PROJECT_DIR permite usar outra pasta de projeto. O servidor Uvicorn não carrega .env.example automaticamente. OPENAI_API_KEY habilita OpenAI; AUTORAG_LLM_OLLAMA_BASE_URL e AUTORAG_LLM_BASE_URL/AUTORAG_LLM_API_KEY configuram os outros serviços generativos.
 
-## Preparar uma base
+O token da aplicação autentica sua API; não é a chave do Cloudflare nem do OpenAI. Na interface, ele fica na sessão do navegador. Projetos compartilhados usam a mesma base central e seleção de consulta; esta versão não cria contas individuais ou permissões por usuário.
 
-1. Em **Preparar base**, informe URLs HTTPS públicas, caminhos do servidor autorizados ou envie PDF, TXT, Markdown, HTML e DOCX. Metadados são opcionais e editáveis no formulário: título, órgão, eixo, idioma e campos extras JSON. Não há dependência de planilha separada.
-2. Gere a prévia e revise tópicos, fonte e metadados. Por padrão, o OpenAI `gpt-6-luna` elabora resumo, resposta-síntese e perguntas, preservando o texto original. Configure `OPENAI_API_KEY` como segredo no servidor. É possível escolher outro modelo OpenAI, um modelo generativo Ollama local ou uma API compatível configurada no servidor; desmarcar o enriquecimento usa o modo extrativo explícito. A prévia registra provedor, modelo e versão do prompt, com revisão humana pendente. Chamadas por API podem ser cobradas. Documentos PDF digitalizados precisam de OCR prévio.
-3. Incorpore a prévia. A API usa seu `preview_id` para gravar exatamente os documentos revisados, sem baixar novamente a fonte. Fontes repetidas no mesmo lote são rejeitadas; outra incorporação da mesma fonte atualiza o documento e conserva a versão anterior da base.
-4. Escolha/cadastre um perfil no laboratório e gere as categorias. Geração é explícita e usa o provedor configurado. Modelos OpenAI/Gemini exigem chave no servidor; Ollama exige o modelo e endpoint disponíveis no servidor Python. Os vetores não são gerados automaticamente ao importar documentos. Uma base com apenas o índice legado de `topico_total_sem_palavras_chave` precisa das quatro categorias do novo padrão antes da primeira consulta semântica.
+Na Cloudflare, configurações e comparações fazem parte dos snapshots privados do R2. Operações confirmam persistência antes do sucesso. Os limites existentes do armazenamento são 90 MiB de snapshot compactado, 1 GiB descompactado e 8 MiB por registro de job; excessos são informados. Código, pesos instalados e dados privados permanecem separados na publicação.
 
-Um caminho como `C:\normas\lei.pdf` se refere ao computador do backend. Para habilitar caminhos locais, configure `AUTORAG_ALLOWED_SOURCE_ROOTS` com diretórios autorizados (` ; ` no Windows; ` : ` no Linux). Para arquivos do computador de quem está navegando, use upload. URLs privadas/localhost são recusadas. Limites: 20 MiB por documento, 25 MiB por requisição HTTP e 30 fontes por lote. Órgão/idioma/vigência não são inferidos quando ausentes.
+## API da nova versão
 
-## Importar uma base já preparada
+- GET/POST /api/experiment-configs: configurações nomeadas.
+- GET/PUT /api/consultation-config: parâmetros compartilhados da consulta.
+- POST /api/comparisons: até três experimentos e análise opcional; responde com job.
+- GET /api/comparisons e GET /api/comparisons/{id}: histórico e registros.
+- GET /api/comparisons/{id}/export?format=json|csv|jsonl|config|vectors: downloads autenticados.
+- POST /api/comparisons/{id}/reproduce: reprodução registrada sem inferência.
+- POST /api/search com apenas query: parâmetros salvos ou consulta vetorial padrão.
 
-Em **Preparar base → Importar base já preparada**, envie o JSON estruturado do AutoRAG e, opcionalmente, o NPZ legado. Os documentos são atualizados por `documento_id`; IDs, textos, metadados, representações e tópicos inativos são preservados. A importação reaproveita as representações existentes e não chama LLM. O índice legado mantém seu próprio perfil; o perfil ativo do projeto permanece selecionado. A operação entra na fila e confirma a persistência antes de concluir.
-
-O botão **Exportar base atual** baixa o JSON para conferência e cópia privada. Importação e exportação estruturadas exigem `AUTORAG_API_TOKEN` no servidor e o mesmo Bearer token da aplicação, inclusive no ambiente local. O limite HTTP é 25 MiB por requisição. Mantenha os datasets e índices no armazenamento privado da aplicação; o pacote GitHub inclui somente os fontes.
-
-As rotas correspondentes são `POST /api/base/import` (multipart `base_file` e `legacy_npz` opcional) e `GET /api/base/export`. A transferência de índices nativos utiliza `POST /api/indices/import` com `index_file`; aceita apenas um perfil já cadastrado, com os mesmos pesos, dimensões, preparação e hashes de conteúdo. A transferência não gera novos embeddings.
-
-## Recuperação padrão
-
-A consulta e todos os vetores atuais das categorias selecionadas do **mesmo perfil** participam de um novo ajuste UMAP → HDBSCAN. Padrão: `perguntas_sugeridas`, `resposta_sintese`, `resumo`, `conteudo_fonte`. Perguntas e respostas são categorias independentes preservadas do modelo anterior. Qualquer combinação das oito categorias pode ser usada.
-
-No agrupamento que contém a consulta:
-
-1. Cada tópico recebe a contagem de **categorias distintas** presentes. Vários segmentos da mesma categoria contam uma vez.
-2. São selecionados até **seis tópicos**, priorizando a maior contagem. O desempate usa a menor distância entre a consulta e um vetor membro do tópico.
-3. O conjunto selecionado é apresentado em ordem crescente dessa distância, calculada no espaço original normalizado L2. UMAP serve para agrupamento e projeção, sem substituir a distância original no ranking.
-
-A coluna de comparação recupera tópicos usando exclusivamente a distância dos vetores de `conteudo_fonte`, independentemente do agrupamento. Se essa categoria ainda não foi gerada, a tela informa que a comparação está indisponível. Categorias ausentes são sinalizadas; vetores inativos/desatualizados são excluídos.
-
-Consulta classificada como ruído (`-1`) ou base insuficiente não recebe agrupamento artificial: a recuperação semântica fica vazia e a comparação direta permanece disponível. O resultado registra parâmetros efetivos, sementes, referências dos índices e do vetor de consulta e revisão da base. A projeção mostra as duas primeiras coordenadas da redução usada; quando a redução tem mais dimensões, o desenho 2D não representa todas as distâncias.
-
-## Laboratório
-
-O laboratório permite escolher perfil, categorias, métrica cosseno/euclidiana, top-k e parâmetros UMAP/HDBSCAN, com dendrograma opcional da árvore real HDBSCAN em SVG e JSON. O modo de recuperação tradicional mantém médias por tópico, vetores individuais, intervalos de similaridade e cobertura parcial da implementação existente, via API e aplicativo desktop. Modelos distintos continuam produzindo rankings separados.
-
-A consulta e os resultados podem ser exportados em JSON. O histórico web guarda execuções em `estudos/web`; o histórico original permanece em `estudos/execucoes`. As exportações ZIP completas e análises originais continuam na CLI/desktop. Operações de ingestão, geração e busca usam uma fila Python e polling de jobs; reiniciar o serviço marca jobs interrompidos para reenvio.
-
-## Publicação completa no Cloudflare
-
-Os fontes estão em [flaviodalossa/CDIA---autorag](https://github.com/flaviodalossa/CDIA---autorag). A configuração em `cloudflare/` hospeda frontend e backend no Cloudflare usando Workers, Containers e R2. Consulte [o guia de Cloudflare](./_autorag_conceito_build/cloudflare/README.md) para autenticação, recursos e publicação pelo GitHub integrado a Workers Builds.
-
-A alternativa abaixo usa Pages com um backend Python hospedado separadamente.
-
-## Alternativa: Cloudflare Pages
-
-Para gerar um ZIP somente com os fontes, execute `python scripts/package_source.py` dentro da pasta da aplicação. O arquivo `autorag-web-v0.1.zip` será criado na pasta anterior.
-
-O repositório usa uma lista de inclusão em `.gitignore`: datasets, índices, chaves, ambientes virtuais e históricos locais ficam fora da publicação. Não há dados normativos embutidos no frontend. A pasta da aplicação contém `Dockerfile`, `compose.yaml`, `wrangler.jsonc` e testes/CI.
-
-1. Crie um repositório GitHub e envie os fontes desta pasta. Na raiz:
-
-```powershell
-git init
-git add .
-git status --short
-git commit -m "Primeira versão web AutoRAG"
-git branch -M main
-git remote add origin https://github.com/SEU_USUARIO/SEU_REPOSITORIO.git
-git push -u origin main
-```
-
-2. Hospede o **backend Python** em um serviço que execute contêineres/Python, com disco persistente montado em `/data`. Contexto de build: `_autorag_conceito_build`; Dockerfile: `Dockerfile`. Configure `AUTORAG_ENV=production`, `AUTORAG_PROJECT_DIR=/data`, `AUTORAG_API_TOKEN` com pelo menos 32 caracteres e as chaves dos provedores usados. Use **um worker e uma réplica** nesta primeira versão: fila e trava são locais. Preserve o volume no redeploy. A rota `/health` serve à verificação de disponibilidade.
-3. Crie um projeto **Cloudflare Pages**, conecte o repositório GitHub e configure:
-
-| Campo | Valor |
-|---|---|
-| Framework | None |
-| Root directory | `_autorag_conceito_build` |
-| Build command | deixar vazio |
-| Build output directory | `web` |
-| Variável de ambiente | `BACKEND_URL=https://ORIGEM_DO_BACKEND` |
-
-`BACKEND_URL` deve ser apenas a origem HTTPS, sem caminho, credenciais ou parâmetros. `web/_worker.js` encaminha `/api/*` ao backend e serve os arquivos estáticos pelo binding `ASSETS`. O visitante informa o token de acesso nas configurações da aplicação; ele fica em sessionStorage da aba. O proxy encaminha esse token ao backend. Chaves de provedores permanecem no servidor. Não coloque segredos em `wrangler.jsonc` ou arquivos públicos.
-
-4. Faça deploy pelo GitHub integrado ao Pages. Abra o site, informe o token e confirme o estado da base. Importe documentos e gere embeddings no projeto persistente do backend. Para migrar a base atual, transfira `dados`, `indices` e, se necessário, `estudos` diretamente ao volume privado, mantendo caminhos relativos.
-
-O processamento científico e os modelos locais rodam no backend Python. Na alternativa Pages, publicar apenas os arquivos estáticos exige configurar o backend separado. A instalação principal usa Workers + Containers + R2, com frontend e backend no mesmo endereço Cloudflare.
-
-As instruções seguem a documentação de [integração Git do Cloudflare Pages](https://developers.cloudflare.com/pages/configuration/git-integration/) e [Functions em modo avançado](https://developers.cloudflare.com/pages/functions/advanced-mode/). O agrupamento segue as APIs oficiais de [UMAP para clustering](https://umap-learn.readthedocs.io/en/latest/clustering.html) e [HDBSCAN](https://hdbscan.readthedocs.io/en/latest/api.html).
-
-## Validação
-
-Dentro da pasta da aplicação:
-
-```powershell
-python -m unittest discover -s tests -p 'test_*.py' -v
-npm run check
-npm test
-```
-
-Os testes usam documentos/vetores sintéticos temporários e provedores falsos; não consomem APIs pagas. A integração científica usa UMAP/HDBSCAN reais quando as dependências de `requirements-web.txt` estão instaladas. A CI repete esses testes no GitHub. Os JSONs normativos e embeddings locais não são alterados pelos testes.
-
-## LLM para elaboração dos tópicos
-
-A tela Preparar base usa OpenAI `gpt-6-luna` por padrão. Cadastre `OPENAI_API_KEY` como segredo do servidor (no Cloudflare, Runtime variables and secrets → Production → Secret). A chave permanece no backend. A presença da chave não comprova saldo, validade nem acesso ao modelo; isso é verificado ao processar uma prévia. O aplicativo também oferece outros modelos OpenAI, Ollama e APIs compatíveis com saídas JSON estruturadas. Não há troca automática de provedor se o modelo escolhido falhar.
-
-No Ollama, informe um modelo generativo previamente instalado no serviço definido por `AUTORAG_LLM_OLLAMA_BASE_URL` (padrão: Ollama local). Essa configuração separada preserva os embeddings locais ao usar um LLM remoto. BGE-M3 e EmbeddingGemma geram embeddings e não elaboram tópicos. Para vLLM, LM Studio ou outro serviço compatível, configure `AUTORAG_LLM_BASE_URL` (incluindo `/v1` quando aplicável) e, se necessário, `AUTORAG_LLM_API_KEY`. URLs de serviços e credenciais são configuradas somente no servidor; serviços remotos exigem HTTPS.
-
-Cada trecho preserva o texto original e seus offsets. O LLM produz resumo, perguntas, resposta, palavras-chave e referências normativas; sua identificação e a versão do prompt ficam registradas na prévia. O usuário revisa antes de confirmar a importação. A opção Extrativo é explícita e não faz elaboração generativa. Confirmar uma prévia já criada não chama o LLM novamente.
-
-No laboratório, o catálogo informa configuração e disponibilidade dos embeddings, permite cadastrar os perfis e testar os modelos locais com entradas sintéticas. Testes automáticos de embeddings não chamam APIs pagas. Na imagem Cloudflare ficam os mesmos pesos locais: BGE-M3 (1.024 dimensões) e EmbeddingGemma 300M QAT Q4_0 (768 dimensões nativas, redução configurada para 256). Os pesos não são enviados ao GitHub nem ao snapshot R2.
+Configurações enviadas explicitamente por integrações anteriores continuam disponíveis. Os fontes estão preparados para GitHub e Cloudflare; datasets, índices, chaves e registros privados não integram o pacote público.

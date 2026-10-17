@@ -72,3 +72,10 @@ O workflow de CI verifica tamanho descompactado da imagem menor que 8 GB e execu
 O comando `python3 deploy.py` usa o Wrangler com o uploader oficial regctl 0.11.6, fixado por SHA256. Ele envia as camadas ao registro Cloudflare em blocos de 8 MiB, com uma requisição por vez, para evitar timeouts no envio dos pesos. A autenticação continua sendo a configuração Docker criada pelo Wrangler com o token de build já autorizado. Não são criadas novas credenciais.
 
 O ajuste atua somente no ambiente Linux AMD64 de build. Os pesos, seus digests, o formato da imagem e o runtime permanecem os mesmos. Antes de exportar o TAR, o wrapper confere espaço livre para a imagem e uma reserva. Se faltar espaço, executa `docker builder prune --all --force` para remover somente cache de build não utilizado e repete a conferência; imagens finais, containers, volumes e credenciais são preservados. Se ainda faltar espaço, o envio é interrompido com os tamanhos necessários no diagnóstico. O TAR temporário da imagem é removido após o envio; regctl e suas configurações ficam em diretórios temporários fora do contexto da aplicação. Para deploy local direto, o comando Wrangler convencional continua disponível.
+
+
+## Laboratório v0.2 e persistência
+
+As configurações reutilizáveis ficam em estudos/presets e a seleção de consulta em estudos/consultation-config.json. Cada comparação grava resultado.json, linhas.jsonl, configuracao.json, a base congelada e os vetores efetivos da entrada em estudos/comparacoes/<id>. Todos esses arquivos integram os snapshots privados do R2. POST /api/experiment-configs e PUT /api/consultation-config confirmam o checkpoint antes de responder com sucesso; comparações, análises e reproduções usam a mesma fila durável dos demais jobs.
+
+A reprodução verifica os hashes dos artefatos originais e não chama modelos de embeddings nem LLM. Reusar uma configuração aplica os parâmetros à base corrente. A avaliação opcional envia ao provedor escolhido os textos retornados e a entrada; credenciais permanecem no servidor. Configurações e exportações não incluem endpoints nem caminhos privados dos perfis.

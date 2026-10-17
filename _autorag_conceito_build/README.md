@@ -1,4 +1,10 @@
-# AutoRAG Web v0.1
+# AutoRAG v0.2
+
+A interface web compara até três experimentos com modelos/categorias combinados, métricas e limites ajustáveis. Configurações e resultados podem ser salvos, exportados e reproduzidos. A análise automática de pertinência e utilidade é opcional, com OpenAI Luna 6, Ollama ou API compatível. Sem experimentos selecionados no laboratório, a consulta usa similaridade vetorial do conteúdo original.
+
+Consulte o [manual da versão web](../APLICACAO_WEB.md). Os fluxos desktop e CLI descritos abaixo continuam disponíveis.
+
+## Aplicação desktop e CLI
 
 Execute `09_abrir_web.bat` para abrir o serviço local na porta 8766. Veja [guia da aplicação web](../APLICACAO_WEB.md) para preparar bases normativas e publicar a interface no Cloudflare com backend Python persistente.
 

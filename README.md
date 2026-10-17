@@ -1,6 +1,6 @@
 # AutoRAG — aplicação web e pipeline incremental
 
-A primeira versão web está em `_autorag_conceito_build`. Consulte [APLICACAO_WEB.md](APLICACAO_WEB.md) para execução, ingestão genérica, busca UMAP/HDBSCAN e publicação GitHub → Cloudflare. O pipeline original está documentado abaixo. No repositório publicado, os comandos Python do pipeline devem ser executados dentro de `_autorag_conceito_build`, que reúne os fontes preservados.
+A versão web 0.2 está em `_autorag_conceito_build`. O laboratório compara até três experimentos, combina modelos e categorias, salva configurações reutilizáveis e oferece análise opcional por LLM. Resultados, vetores numéricos e métricas podem ser baixados para comparação e reprodução. Consulte [APLICACAO_WEB.md](APLICACAO_WEB.md) para execução e publicação GitHub → Cloudflare. O pipeline original está documentado abaixo; seus comandos Python devem ser executados dentro de `_autorag_conceito_build`.
 
 # Pipeline incremental — Assistente de Ética em Pesquisa
 

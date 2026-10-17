@@ -9,12 +9,13 @@ from .core import (CATEGORIES, LABELS, category_text, digest, documents, now,
 from .experiments import save_input, search as laboratory_search
 from .service import inventory, require_profile, sync_base
 
-DEFAULT_CATEGORIES = ("perguntas_sugeridas", "resposta_sintese", "resumo", "conteudo_fonte")
+DEFAULT_CATEGORIES = ("conteudo_fonte",)
+SEMANTIC_CATEGORIES = ("perguntas_sugeridas", "resposta_sintese", "resumo", "conteudo_fonte")
 
 
 def status(project):
     base = project.base() if project.base_path.exists() else {"documentos": []}
-    return {"name": "AutoRAG", "version": "0.1.0", "documents": len(documents(base)),
+    return {"name": "AutoRAG", "version": "0.2.0", "documents": len(documents(base)),
             "topics": sum(1 for _ in topics(base)),
             "profiles": list(project.config()["perfis"].values()),
             "active_profile": project.config().get("perfil_ativo_id"),
@@ -84,11 +85,11 @@ def run_search(project, request, provider=None):
     """Snapshot a single profile. Never mix coordinate spaces from distinct models."""
     from .semantic import search_semantic
     profile_id, query = request["profile_id"], request["query"]
-    categories = request.get("categories") or list(DEFAULT_CATEGORIES)
+    mode = request.get("mode", "vector")
+    categories = request.get("categories") or list(SEMANTIC_CATEGORIES if mode == "semantic" else DEFAULT_CATEGORIES)
     if any(c not in CATEGORIES for c in categories):
         raise ValueError("Categoria desconhecida.")
-    mode = request.get("mode", "semantic")
-    if mode not in {"semantic", "laboratory"}:
+    if mode not in {"vector", "semantic", "laboratory"}:
         raise ValueError("Modo de recuperação desconhecido.")
     profile = require_profile(project, profile_id)
     top_k = request.get("top_k", 6)
@@ -132,6 +133,18 @@ def run_search(project, request, provider=None):
                   "baseline_results": present_results(baseline, mapping),
                   "status": "ok", "cluster": {}, "projection": [], "warnings": [],
                   "laboratory_execution_id": experiment["execucao_id"], "parameters": request}
+    elif mode == "vector":
+        from .semantic import vector_search
+        metric = request.get("metric", "cosine")
+        limits = {"minimum_similarity": request.get("minimum_similarity", request.get("minimum")),
+                  "maximum_distance": request.get("maximum_distance")}
+        selected = vector_search(vectors, query_vector, categories, top_k, metric, **limits)
+        baseline = vector_search(vectors, query_vector, ["conteudo_fonte"], top_k, metric, **limits)
+        output = {"semantic_results": present_results(selected, mapping),
+                  "baseline_results": present_results(baseline, mapping),
+                  "status": "ok", "cluster": {}, "projection": [], "warnings": [],
+                  "parameters": {**request, "distance_space": "original_l2_normalized",
+                                 "selection": "minimum_selected_vector_distance"}}
     else:
         output = search_semantic(vectors, query_vector, categories=categories, top_k=top_k, options=options)
         output["semantic_results"] = present_results(output["semantic_results"], mapping)

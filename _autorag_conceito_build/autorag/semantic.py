@@ -132,10 +132,15 @@ def _distances(matrix, query, metric):
     return np.abs(matrix - query).sum(axis=1)
 
 
-def _rank(records, matrix, query, metric, indices, top_k, by_coverage=False):
+def _rank(records, matrix, query, metric, indices, top_k, by_coverage=False,
+          minimum_similarity=None, maximum_distance=None):
     if not indices:
         return [], 0
     distances = _distances(matrix, query, metric)
+    if minimum_similarity is not None:
+        indices = [i for i in indices if float(np.clip(matrix[i] @ query, -1, 1)) >= minimum_similarity]
+    if maximum_distance is not None:
+        indices = [i for i in indices if float(distances[i]) <= maximum_distance]
     groups = {}
     for index in indices:
         record = records[index]
@@ -245,7 +250,8 @@ def _linkage_svg(linkage, labels):
     return "".join(parts)
 
 
-def search_semantic(vectors, query_embedding, categories=None, top_k=6, options=None):
+def search_semantic(vectors, query_embedding, categories=None, top_k=6, options=None,
+                    minimum_similarity=None, maximum_distance=None):
     """Return semantic topics, pure source-text topics, and an auditable cluster.
 
     Each vector is {topic_id, category, embedding, embedding_id?, title?, text?,
@@ -260,6 +266,7 @@ def search_semantic(vectors, query_embedding, categories=None, top_k=6, options=
     """
     top_k = _integer(top_k, "top_k", 1, 100)
     params = _parameters(options)
+    _thresholds(minimum_similarity, maximum_distance)
     query = _embedding(query_embedding, "consulta")
     records, matrix = _records(vectors, len(query))
     if categories is not None and not isinstance(categories, (list, tuple)):
@@ -270,11 +277,12 @@ def search_semantic(vectors, query_embedding, categories=None, top_k=6, options=
     categories = list(dict.fromkeys(categories))
     selected = [index for index, row in enumerate(records) if row["category"] in categories]
     source_rows = [index for index, row in enumerate(records) if row["category"] == "conteudo_fonte"]
-    baseline, baseline_eligible = _rank(records, matrix, query, params["metric"], source_rows, top_k)
+    baseline, baseline_eligible = _rank(records, matrix, query, params["metric"], source_rows, top_k,
+                                        minimum_similarity=minimum_similarity, maximum_distance=maximum_distance)
     result = {
         "status": "empty" if not selected else "insufficient_data",
         "semantic_results": [], "baseline_results": baseline,
-        "parameters": {**params, "categories": categories, "top_k": top_k,
+        "parameters": {**params, "categories": categories, "top_k": top_k, "minimum_similarity": minimum_similarity, "maximum_distance": maximum_distance,
                        "distance_space": "original_l2_normalized",
                        "topic_distance": "minimum_member_distance",
                        "selection": "distinct_categories_then_distance",
@@ -325,7 +333,8 @@ def search_semantic(vectors, query_embedding, categories=None, top_k=6, options=
         result["warnings"].append("HDBSCAN classificou a consulta como ruído; nenhum agrupamento semântico foi atribuído.")
         return result
     members = [index for local, index in enumerate(selected) if labels[local] == query_label]
-    ranked, eligible = _rank(records, matrix, query, params["metric"], members, top_k, by_coverage=True)
+    ranked, eligible = _rank(records, matrix, query, params["metric"], members, top_k, by_coverage=True,
+                             minimum_similarity=minimum_similarity, maximum_distance=maximum_distance)
     result["semantic_results"] = ranked
     result["coverage"]["semantic_eligible_topics"] = eligible
     result["status"] = "ok"
@@ -343,3 +352,30 @@ def vector_baseline(vectors, query_embedding, top_k=6, metric="cosine"):
     indices = [i for i, row in enumerate(records) if row["category"] == "conteudo_fonte"]
     results, _ = _rank(records, matrix, query, metric, indices, top_k)
     return results
+
+
+def _thresholds(minimum_similarity=None, maximum_distance=None):
+    for value, name in ((minimum_similarity, "minimum_similarity"), (maximum_distance, "maximum_distance")):
+        if value is not None and (isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value)):
+            raise ValueError(f"{name} deve ser finito.")
+    if minimum_similarity is not None and not -1 <= minimum_similarity <= 1:
+        raise ValueError("minimum_similarity deve estar entre -1 e 1.")
+    if maximum_distance is not None and maximum_distance < 0:
+        raise ValueError("maximum_distance deve ser não negativo.")
+
+
+def vector_search(vectors, query_embedding, categories=None, top_k=6, metric="cosine",
+                  minimum_similarity=None, maximum_distance=None):
+    """Rank topics by their nearest selected vector, filtering before top-k."""
+    if top_k is not None:
+        top_k = _integer(top_k, "top_k", 1, 100)
+    if metric not in METRICS:
+        raise ValueError("Métrica inválida.")
+    _thresholds(minimum_similarity, maximum_distance)
+    query = _embedding(query_embedding, "consulta")
+    records, matrix = _records(vectors, len(query))
+    chosen = set(categories or ["conteudo_fonte"])
+    indices = [i for i, row in enumerate(records) if row["category"] in chosen]
+    result, _ = _rank(records, matrix, query, metric, indices, top_k,
+                      minimum_similarity=minimum_similarity, maximum_distance=maximum_distance)
+    return result

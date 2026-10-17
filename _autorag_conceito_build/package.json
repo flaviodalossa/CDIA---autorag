@@ -1,10 +1,10 @@
 {
   "name": "autorag-normativo-web",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node --check web/app.js && node --check web/_worker.js",
-    "test": "node --test tests/web_worker.test.mjs"
+    "check": "node --check web/app.js && node --check web/laboratory.js && node --check web/_worker.js",
+    "test": "node --test tests/web_worker.test.mjs tests/laboratory.test.mjs"
   }
 }

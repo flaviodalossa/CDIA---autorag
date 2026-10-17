@@ -122,9 +122,11 @@ def install(api, store):
                         return await JSONResponse({"detail": "Persistência R2 indisponível."}, status_code=503)(scope, receive, send)
                     return await JSONResponse({"status": "persisted"})(scope, receive, send)
                 return await JSONResponse({"detail": "Não encontrado."}, status_code=404)(scope, receive, send)
-            if path == "/api/profiles" and scope["method"] == "POST" and authorized(scope):
+            if ((path == "/api/profiles" and scope["method"] == "POST") or
+                (path == "/api/experiment-configs" and scope["method"] == "POST") or
+                (path == "/api/consultation-config" and scope["method"] == "PUT")) and authorized(scope):
                 if not mutation.acquire(blocking=False):
-                    return await JSONResponse({"detail": "Há processamento em andamento. Aguarde para cadastrar o perfil."}, status_code=409)(scope, receive, send)
+                    return await JSONResponse({"detail": "Há processamento em andamento. Aguarde para salvar esta configuração."}, status_code=409)(scope, receive, send)
                 messages = []
                 async def buffered_send(message):
                     messages.append(message)
@@ -136,7 +138,7 @@ def install(api, store):
                             await asyncio.to_thread(store.checkpoint, api.project)
                         except Exception:
                             dirty.set()
-                            return await JSONResponse({"detail": "O perfil não foi confirmado no R2. Tente novamente."}, status_code=503)(scope, receive, send)
+                            return await JSONResponse({"detail": "A alteração não foi confirmada no R2. Tente novamente."}, status_code=503)(scope, receive, send)
                     for message in messages:
                         await send(message)
                 finally:

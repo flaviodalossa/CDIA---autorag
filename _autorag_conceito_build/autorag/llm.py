@@ -210,3 +210,81 @@ def llm_catalog():
         {"provider": "extractive", "label": "Extrativo — sem LLM", "available": True,
          "detail": "Copia trechos e usa perguntas em modelo de frase. Não realiza elaboração generativa.", "models": []},
     ]}
+
+
+def make_structured_generator(config, *, instructions, schema, name, max_output_tokens=12000):
+    """Structured server-side generation for evaluation, using the same safe transports.
+
+    Configuration deliberately has no client-supplied URL or credentials. The
+    enrichment factory remains the source of provider/model validation.
+    """
+    validated = make_enricher(config)
+    if validated is None:
+        raise LLMError("A análise automática exige um modelo generativo.")
+    provider, model = validated.provenance["provider"], validated.provenance["model"]
+    if provider == "openai":
+        endpoint, key = "https://api.openai.com/v1/responses", obter_chave("openai")
+    elif provider == "ollama":
+        endpoint = _endpoint("AUTORAG_LLM_OLLAMA_BASE_URL", os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")) + "/api/chat"
+        key = ""
+    else:
+        endpoint, key = _endpoint("AUTORAG_LLM_BASE_URL") + "/chat/completions", os.getenv("AUTORAG_LLM_API_KEY", "").strip()
+
+    def generate(data):
+        user_text = json.dumps(data, ensure_ascii=False, allow_nan=False)
+        messages = [{"role": "system", "content": instructions}, {"role": "user", "content": user_text}]
+        if provider == "openai":
+            payload = {"model": model, "instructions": instructions, "input": user_text,
+                       "store": False, "truncation": "disabled", "max_output_tokens": max_output_tokens,
+                       "text": {"format": {"type": "json_schema", "name": name,
+                                            "strict": True, "schema": schema}}}
+            if model in {"gpt-6-luna", "gpt-6.1-sol", "gpt-6-astra"}:
+                payload["reasoning"] = {"effort": "low"}
+            result = _request(endpoint, payload, key)
+            if result.get("status") != "completed" or result.get("error"):
+                raise LLMError("O LLM não concluiu a análise automática.")
+            output, texts = result.get("output"), []
+            if not isinstance(output, list):
+                raise LLMError("O LLM retornou uma resposta estruturada inválida.")
+            for item in output:
+                if not isinstance(item, dict) or not isinstance(item.get("content", []), list):
+                    raise LLMError("O LLM retornou uma resposta estruturada inválida.")
+                for part in item.get("content", []):
+                    if not isinstance(part, dict):
+                        raise LLMError("O LLM retornou uma resposta estruturada inválida.")
+                    if part.get("type") == "refusal":
+                        raise LLMError("O LLM recusou a análise automática.")
+                    if part.get("type") == "output_text":
+                        texts.append(part.get("text"))
+            if not all(isinstance(text, str) for text in texts):
+                raise LLMError("O LLM retornou conteúdo textual inválido.")
+            text = "".join(texts)
+        elif provider == "ollama":
+            result = _request(endpoint, {"model": model, "messages": messages, "stream": False,
+                                        "format": schema, "keep_alive": 0, "truncate": False, "shift": False,
+                                        "options": {"temperature": 0, "num_predict": max_output_tokens}})
+            if result.get("done") is not True or result.get("done_reason") != "stop" or not isinstance(result.get("message"), dict):
+                raise LLMError("O Ollama não concluiu a análise estruturada.")
+            text = result["message"].get("content")
+        else:
+            result = _request(endpoint, {"model": model, "messages": messages, "stream": False,
+                                        "max_tokens": max_output_tokens,
+                                        "response_format": {"type": "json_schema", "json_schema": {
+                                            "name": name, "strict": True, "schema": schema}}}, key)
+            choices = result.get("choices")
+            if (not isinstance(choices, list) or not choices or not isinstance(choices[0], dict) or
+                    choices[0].get("finish_reason") != "stop" or not isinstance(choices[0].get("message"), dict)):
+                raise LLMError("A API compatível não concluiu a análise estruturada.")
+            text = choices[0]["message"].get("content")
+        if not isinstance(text, str):
+            raise LLMError("O LLM não retornou conteúdo textual estruturado.")
+        try:
+            value = json.loads(text)
+        except (ValueError, UnicodeError):
+            raise LLMError("O LLM não retornou o JSON solicitado para a análise.") from None
+        if not isinstance(value, dict):
+            raise LLMError("A análise retornada pelo LLM é inválida.")
+        return value
+
+    generate.provenance = {"provider": provider, "model": model}
+    return generate

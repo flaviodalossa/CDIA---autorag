@@ -6,8 +6,8 @@
     perguntas_sugeridas: 'Perguntas sugeridas', resposta_sintese: 'Resposta-síntese', resumo: 'Resumo', conteudo_fonte: 'Conteúdo-fonte',
     topico_total_sem_palavras_chave: 'Tópico total sem palavras-chave', topico_total_com_palavras_chave: 'Tópico total com palavras-chave', palavras_chave: 'Palavras-chave', metadados: 'Metadados'
   };
-  const DEFAULT = { categories: DEFAULT_CATEGORIES, mode: 'semantic', metric: 'cosine', top_k: 6, n_neighbors: 15, min_cluster_size: 5, min_samples: 2, n_components: 5, dendrogram: false };
-  const state = { status: null, categories: Object.entries(CATEGORY_LABELS).map(([id, label]) => ({id, label})), config: {...DEFAULT, categories: [...DEFAULT_CATEGORIES], profile_id: ''}, results: null, resultQuery: '', preview: null, previewForm: null, selectedExperiment: null, selectedFiles: [], searchController: null, activePage: 'consulta', ingestRevision: 0 };
+  const DEFAULT = { categories: ['conteudo_fonte'], mode: 'vector', metric: 'cosine', top_k: 6, n_neighbors: 15, min_cluster_size: 5, min_samples: 2, n_components: 5, dendrogram: false };
+  const state = { status: null, categories: Object.entries(CATEGORY_LABELS).map(([id, label]) => ({id, label})), config: {...DEFAULT, categories: [...DEFAULT.categories], profile_id: ''}, results: null, resultQuery: '', preview: null, previewForm: null, selectedExperiment: null, selectedFiles: [], searchController: null, activePage: 'consulta', ingestRevision: 0 };
   const session = { get(key) { try { return sessionStorage.getItem(key) || ''; } catch { return ''; } }, set(key, value) { try { sessionStorage.setItem(key, value); } catch {} } };
   let backend = session.get('autorag_backend').replace(/\/+$/, '');
   let token = session.get('autorag_token');
@@ -90,6 +90,7 @@
     if (focus) { $('main').focus({preventScroll: true}); window.scrollTo({top: 0, behavior: 'instant'}); }
     if (page === 'laboratorio') { refreshHistory(); if (!state.models) refreshModels(); }
     if (page === 'preparar' && !state.llms) refreshLLMs();
+    state.lab?.navigate(page);
   }
   function renderCategories() {
     for (const name of ['search', 'generate']) {
@@ -134,7 +135,7 @@
       $('onboarding').hidden = docCount > 0;
       $('sources-help').textContent = data.local_paths_enabled === false ? 'Uma URL por linha ou envie arquivos abaixo. Caminhos locais estão desabilitados neste ambiente.' : 'Uma fonte por linha. Caminhos locais devem existir no servidor da aplicação. Para arquivos do seu computador, use o envio abaixo.';
       if (!state.config.profile_id && data.active_profile) state.config.profile_id = data.active_profile;
-      renderProfiles(data.profiles || data.perfis); renderInventory(data.inventory);
+      renderProfiles(data.profiles || data.perfis); renderInventory(data.inventory); state.lab?.renderProfiles();
       if (state.models) renderModels();
       $('generation-state').textContent = docCount + ' documentos · ' + topicCount + ' tópicos na base atual.';
       if (!quiet) message('');
@@ -163,6 +164,8 @@
     return '<article class="result-card"><div class="result-topline"><span class="rank">' + String(index + 1).padStart(2, '0') + ' / TÓPICO</span><span class="distance">Distância <b>' + number(row.distance ?? row.distancia) + '</b></span></div><h4>' + esc(title) + '</h4><p class="result-text result-snippet">' + esc(text) + '</p>' + (text.length > 250 ? '<details><summary>Ler conteúdo recuperado</summary><p class="result-text">' + esc(text) + '</p></details>' : '') + (semantic || categories.length ? '<div class="category-chips">' + (semantic ? '<span class="category-chip match-count">' + esc(count) + (Number(count) === 1 ? ' categoria no grupo' : ' categorias no grupo') + '</span>' : '') + categories.map(category => '<span class="category-chip">' + esc(label(typeof category === 'string' ? category : category.id || category.categoria)) + '</span>').join('') + '</div>' : '') + sourceMarkup(row) + '</article>';
   }
   function renderResults(data, query) {
+    if (state.lab?.isComparison(data)) { state.lab.render(data,query,'consultation'); return; }
+    state.lab?.hideConsultation();
     state.results = data; state.resultQuery = query;
     $('results').hidden = false; $('search-empty').hidden = true; $('result-query').textContent = query;
     const metricName = {cosine:'Cosseno',euclidean:'Euclidiana',manhattan:'Manhattan'}[data.parameters?.metric] || '';
@@ -171,17 +174,20 @@
     $('semantic-count').textContent = semantic.length; $('direct-count').textContent = baseline.length;
     const noise = data.status === 'query_noise' || data.cluster?.noise === true || Number(data.cluster?.query_label) === -1;
     const laboratory = (data.mode || data.parameters?.mode) === 'laboratory';
-    $('semantic-title').textContent = laboratory ? 'Laboratório de vetores' : 'Agrupamento semântico';
-    $('semantic-subtitle').textContent = laboratory ? 'Categorias e métrica selecionadas' : 'Convergência entre categorias de vetores';
-    $('semantic-results').innerHTML = semantic.length ? semantic.map((row, index) => resultCard(row, index, !laboratory)).join('') : '<div class="empty-result"><strong>' + (noise ? 'A consulta ficou fora dos grupos.' : 'Nenhum tópico neste agrupamento.') + '</strong>' + (noise ? 'O HDBSCAN classificou a consulta como ruído. Consulte a similaridade direta ao lado ou avalie outra combinação no laboratório.' : data.status === 'insufficient_data' ? 'A base tem poucos vetores para esta configuração. Gere embeddings ou ajuste os parâmetros no laboratório.' : 'Verifique o perfil, a disponibilidade das categorias e a documentação da base.') + '</div>';
+    const vector = (data.mode || data.parameters?.mode) === 'vector';
+    document.querySelector('.result-column.direct').hidden = vector;
+    document.querySelector('.result-columns').classList.toggle('single-result',vector);
+    $('semantic-title').textContent = vector ? 'Similaridade vetorial' : laboratory ? 'Laboratório de vetores' : 'Agrupamento semântico';
+    $('semantic-subtitle').textContent = vector ? 'Conteúdo original da base' : laboratory ? 'Categorias e métrica selecionadas' : 'Convergência entre categorias de vetores';
+    $('semantic-results').innerHTML = semantic.length ? semantic.map((row, index) => resultCard(row, index, !laboratory && !vector)).join('') : '<div class="empty-result"><strong>' + (noise ? 'A consulta ficou fora dos grupos.' : 'Nenhum tópico neste agrupamento.') + '</strong>' + (noise ? 'O HDBSCAN classificou a consulta como ruído. Consulte a similaridade direta ao lado ou avalie outra combinação no laboratório.' : data.status === 'insufficient_data' ? 'A base tem poucos vetores para esta configuração. Gere embeddings ou ajuste os parâmetros no laboratório.' : 'Verifique o perfil, a disponibilidade das categorias e a documentação da base.') + '</div>';
     $('baseline-results').innerHTML = baseline.length ? baseline.map((row, index) => resultCard(row, index, false)).join('') : '<div class="empty-result"><strong>Nenhum conteúdo disponível.</strong>' + (data.legacy ? 'A recuperação direta não foi registrada nesta execução legada.' : 'Gere vetores da categoria Conteúdo-fonte para habilitar a comparação por distância direta.') + '</div>';
     warnings(data.warnings, 'search-warnings');
     renderProjection(data.projection || data.cluster?.points, data.cluster?.query_label);
     renderDendrogram(data.dendrogram);
   }
-  function renderProjection(points, queryLabel) {
+  function renderProjection(points, queryLabel, chart = $('projection-chart'), panel = $('projection-panel')) {
     points = list(points).map(point => ({...point,x:point.x ?? point.coordinates?.[0],y:point.y ?? point.coordinates?.[1]})).filter(point => Number.isFinite(Number(point.x)) && Number.isFinite(Number(point.y)));
-    $('projection-panel').hidden = !points.length; $('projection-chart').replaceChildren();
+    panel.hidden = !points.length; chart.replaceChildren();
     if (!points.length) return;
     const width = 900, height = 390, pad = 35;
     const xs = points.map(point => Number(point.x)), ys = points.map(point => Number(point.y));
@@ -198,10 +204,10 @@
       Object.entries({cx:x(point.x), cy:y(point.y), r:isQuery ? 7 : inGroup ? 4.5 : 3, fill:isQuery ? '#153f4a' : noise ? '#d9dcd5' : inGroup ? '#5a9b76' : '#bacbc7', stroke:isQuery ? '#fff' : 'none', 'stroke-width':2, tabindex:0}).forEach(([key,value]) => circle.setAttribute(key, value));
       const title = document.createElementNS(ns, 'title'); title.textContent = isQuery ? 'Sua consulta · grupo ' + cluster : (point.title || point.topic_id || 'Vetor') + ' · ' + label(point.category || '') + ' · grupo ' + cluster; circle.append(title); svg.append(circle);
     });
-    $('projection-chart').append(svg);
+    chart.append(svg);
   }
-  function renderDendrogram(data) {
-    $('dendrogram-chart').replaceChildren(); $('dendrogram-panel').hidden = true;
+  function renderDendrogram(data, chart = $('dendrogram-chart'), panel = $('dendrogram-panel')) {
+    chart.replaceChildren(); panel.hidden = true;
     if (!data?.svg || typeof data.svg !== 'string') return;
     const parsed = new DOMParser().parseFromString(data.svg, 'image/svg+xml');
     const root = parsed.documentElement;
@@ -215,9 +221,10 @@
       }
     }
     root.setAttribute('role','img'); root.setAttribute('aria-label','Dendrograma HDBSCAN desta consulta');
-    $('dendrogram-chart').append(document.importNode(root, true)); $('dendrogram-panel').hidden = false;
+    chart.append(document.importNode(root, true)); panel.hidden = false;
   }
   function updateActiveDescription() {
+    if (state.lab) { state.lab.describe(); return; }
     const config = state.config; const semantic = config.mode === 'semantic';
     $('active-method').textContent = semantic ? 'Agrupamento semântico' : 'Laboratório de vetores';
     $('active-selection').textContent = config.categories.map(label).join(' · ');
@@ -230,9 +237,9 @@
     if (!state.config.profile_id) { message('Cadastre e selecione um perfil de embeddings no Laboratório para consultar a base.', 'warning'); navigate('laboratorio'); return; }
     if (!state.config.categories.length) { message('Selecione pelo menos uma categoria no Laboratório.', 'warning'); navigate('laboratorio'); return; }
     const controller = new AbortController(); state.searchController = controller;
-    setBusy('search-button', true, 'search-progress'); $('search-progress-label').textContent = 'Organizando o espaço semântico…'; message('');
+    setBusy('search-button', true, 'search-progress'); $('search-progress-label').textContent = 'Executando a recuperação configurada…'; message('');
     try {
-      const result = await request('/api/search', {method:'POST', body:{query, ...state.config}, signal:controller.signal, progress: text => $('search-progress-label').textContent = text});
+      const result = await request('/api/search', {method:'POST', body:{query}, signal:controller.signal, progress: text => $('search-progress-label').textContent = text});
       renderResults(result, query); refreshHistory();
     } catch (error) { message(isAbort(error) ? 'A espera foi interrompida. O processamento já iniciado pode continuar no servidor; consulte o histórico antes de repetir.' : error.message, isAbort(error) ? 'warning' : 'error'); }
     finally { state.searchController = null; setBusy('search-button', false, 'search-progress'); }
@@ -419,11 +426,13 @@
     return config;
   }
   function applyLab(event) {
+    if (state.lab) { state.lab.saveEditor(event); return; }
     event.preventDefault();
     try { state.config = readLab(); updateActiveDescription(); $('lab-state').textContent = 'Configuração aplicada a partir da próxima consulta.'; message('Configuração do laboratório aplicada à próxima consulta.', 'success'); navigate('consulta'); $('query').focus(); }
     catch (error) { message(error.message,'warning'); }
   }
   function resetLab() {
+    if (state.lab) { state.lab.resetEditor(); return; }
     state.config = {...DEFAULT,categories:[...DEFAULT_CATEGORIES],profile_id:state.config.profile_id};
     renderCategories();
     Object.entries({'metric':'metric','top_k':'top-k','n_neighbors':'n-neighbors','min_cluster_size':'min-cluster-size','min_samples':'min-samples','n_components':'n-components'}).forEach(([key,id]) => $(id).value = DEFAULT[key]);
@@ -434,7 +443,7 @@
   async function registerProfile(event) {
     event.preventDefault(); const button = event.submitter; button.disabled = true;
     try {
-      const body = {provider:$('provider').value,model:$('model').value.trim(),dimensions:Number($('dimensions').value)};
+      const body = {provider:$('provider').value,model:$('model').value.trim(),dimensions:Number($('dimensions').value),activate:false};
       if ($('endpoint').value.trim()) body.endpoint = $('endpoint').value.trim();
       const result = await request('/api/profiles',{method:'POST',body});
       state.config.profile_id = result.perfil_id || result.profile?.perfil_id || state.config.profile_id;
@@ -452,7 +461,8 @@
     if (!id) return;
     state.config.profile_id = id;
     document.querySelectorAll('.profile-select').forEach(select => select.value = id);
-    $('lab-state').textContent = 'Perfil selecionado para geração e para a próxima consulta.';
+    state.lab?.selectProfile(id);
+    $('lab-state').textContent = 'Perfil selecionado para geração e para o experimento em edição.';
   }
   function renderModels() {
     $('local-models').replaceChildren(); $('api-models').replaceChildren();
@@ -506,7 +516,7 @@
     state.modelBusy ||= new Set(); state.modelBusy.add(modelKey(row)); renderModels();
     message('Validando a instalação e cadastrando o perfil…','','models-message');
     try {
-      const profile = await request('/api/profiles',{method:'POST',body:{provider:row.provedor,model:row.modelo,dimensions:row.dimensoes}});
+      const profile = await request('/api/profiles',{method:'POST',body:{provider:row.provedor,model:row.modelo,dimensions:row.dimensoes,activate:false}});
       state.config.profile_id = profile.perfil_id;
       await refreshStatus({quiet:true}); selectModelProfile(profile.perfil_id); await refreshModels();
       message('Perfil cadastrado e selecionado. Você já pode gerar embeddings das categorias desejadas.','success','models-message');
@@ -525,6 +535,7 @@
   }
   function date(value) { const time = new Date(value); return Number.isNaN(time.getTime()) ? String(value || '') : time.toLocaleString('pt-BR'); }
   async function refreshHistory() {
+    state.lab?.refreshHistory();
     $('refresh-history').disabled = true;
     try {
       const data = await request('/api/experiments'); const rows = list(data.experiments || data.execucoes || data);
@@ -569,13 +580,19 @@
     if (!data) return; const url = URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json;charset=utf-8'}));
     const link = document.createElement('a'); link.href = url; link.download = name; document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url),1000);
   }
+  async function downloadAuthenticated(path, filename) {
+    const headers = {}; if (token) headers.Authorization = 'Bearer ' + token;
+    const response = await fetch(apiUrl(path),{headers,credentials:'same-origin',redirect:'error'});
+    if (!response.ok) { const data = await response.json().catch(() => ({})); throw new Error(typeof data.detail === 'string' ? data.detail : 'Não foi possível baixar o arquivo (' + response.status + ').'); }
+    const url = URL.createObjectURL(await response.blob()); const link = document.createElement('a'); link.href = url; link.download = filename; document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url),1000);
+  }
   function settings() { $('backend-url').value = backend; $('access-token').value = token; $('settings-dialog').showModal(); }
   function saveSettings(event) {
     event.preventDefault(); const raw = $('backend-url').value.trim().replace(/\/+$/,'');
     if (raw) { const url = new URL(raw); if (!['https:','http:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) { message('Informe uma URL HTTP ou HTTPS, sem credenciais, parâmetros ou fragmentos.', 'error'); return; } }
     backend = raw; token = $('access-token').value.trim(); session.set('autorag_backend',backend); session.set('autorag_token',token);
     state.models = null; state.llms = null;
-    $('settings-dialog').close(); refreshStatus();
+    $('settings-dialog').close(); refreshStatus(); state.lab?.refresh();
     if (state.activePage === 'laboratorio') refreshModels();
     if (state.activePage === 'preparar') refreshLLMs();
   }
@@ -604,5 +621,7 @@
   $('export-experiment').addEventListener('click',() => exportJSON(state.selectedExperiment,'autorag-experimento.json'));
   $('open-experiment').addEventListener('click',() => {const data = state.selectedExperiment;renderResults(experimentResult(data),data.query || data.texto_original_entrada || 'Experimento salvo');$('experiment-dialog').close();navigate('consulta');});
   window.addEventListener('hashchange',() => navigate(location.hash.slice(1),false));
-  renderCategories(); updateActiveDescription(); navigate(location.hash.slice(1),false); refreshStatus();
+  renderCategories();
+  state.lab = AutoRAGLaboratory.init({$,request,message,state,esc,label,number,date,navigate,resultCard,renderProjection,renderDendrogram,download:downloadAuthenticated});
+  updateActiveDescription(); navigate(location.hash.slice(1),false); refreshStatus();
 })();

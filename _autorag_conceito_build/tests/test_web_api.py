@@ -344,7 +344,7 @@ class WebAPITests(unittest.TestCase):
         request = search.call_args.args[1]
         self.assertIs(search.call_args.args[0], self.project)
         self.assertEqual(request["categories"], list(DEFAULT_CATEGORIES))
-        self.assertEqual(request["mode"], "semantic")
+        self.assertEqual(request["mode"], "vector")
         self.assertEqual(request["top_k"], 6)
         self.assertFalse(request["dendrogram"])
 

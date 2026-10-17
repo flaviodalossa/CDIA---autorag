@@ -8,7 +8,7 @@ import numpy as np
 
 from autorag.core import Project, write_json
 from autorag.service import generate, import_base
-from autorag.web_service import DEFAULT_CATEGORIES, collect_vectors, history, run_search
+from autorag.web_service import SEMANTIC_CATEGORIES as DEFAULT_CATEGORIES, collect_vectors, history, run_search
 from test_autorag import FakeProvider, fixture
 
 
@@ -25,7 +25,7 @@ class WebServiceTests(unittest.TestCase):
         self.project.save_config({'perfis':{'pf_test':self.profile},'perfil_ativo_id':'pf_test'})
         self.provider = FakeProvider(self.profile)
         generate(self.project,'pf_test',list(DEFAULT_CATEGORIES),provider=self.provider)
-        self.request = {'profile_id':'pf_test','query':' Uma consulta normativa\n','categories':list(DEFAULT_CATEGORIES),'top_k':2}
+        self.request = {'mode':'semantic','profile_id':'pf_test','query':' Uma consulta normativa\n','categories':list(DEFAULT_CATEGORIES),'top_k':2}
 
     def tearDown(self):
         self.temp.cleanup()

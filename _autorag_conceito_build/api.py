@@ -48,7 +48,7 @@ async def lifespan(app):
     yield
 
 
-app = FastAPI(title="AutoRAG — bases normativas", version="0.1.0", lifespan=lifespan,
+app = FastAPI(title="AutoRAG — bases normativas", version="0.2.0", lifespan=lifespan,
               docs_url=None, redoc_url=None, openapi_url=None)
 
 
@@ -141,7 +141,7 @@ def submit(kind, function):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "version": "0.1.0"}
+    return {"status": "ok", "version": "0.2.0"}
 
 
 @app.get("/api/status")
@@ -315,13 +315,183 @@ async def import_prepared_index(request: Request):
     await asyncio.to_thread(validate_index_bundle, project, data)
     return submit("index_import", lambda: import_index_bundle(project, data))
 
+class AnalysisRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    enabled: bool = Field(default=False, strict=True)
+    provider: str = Field(default="openai", pattern="^(openai|ollama|openai_compatible)$")
+    model: str = Field(default="gpt-6-luna", min_length=1, max_length=200)
+
+
+class ExperimentBundleRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=120)
+    experiments: list[dict] = Field(min_length=1, max_length=3)
+    analysis: AnalysisRequest = Field(default_factory=AnalysisRequest)
+    active: bool = Field(default=False, strict=True)
+    id: str | None = Field(default=None, min_length=1, max_length=100)
+
+
+class ConsultationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    experiments: list[dict] = Field(default_factory=list, max_length=3)
+    analysis: AnalysisRequest = Field(default_factory=AnalysisRequest)
+
+
+class ComparisonRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    query: str = Field(min_length=1, max_length=50000)
+    experiments: list[dict] | None = Field(default=None, min_length=1, max_length=3)
+    preset_id: str | None = Field(default=None, min_length=1, max_length=100)
+    analysis: AnalysisRequest | None = None
+    consultation: bool = Field(default=False, strict=True)
+
+
+@app.get("/api/experiment-configs")
+def get_experiment_configs():
+    from autorag.comparisons import list_presets
+    with project.lock(wait_seconds=READ_LOCK_WAIT_SECONDS):
+        return {"configs": list_presets(project)}
+
+
+@app.post("/api/experiment-configs")
+def add_experiment_config(body: ExperimentBundleRequest):
+    from autorag.comparisons import save_preset
+    from autorag.evaluation import validate_analysis_config
+    data = body.model_dump(exclude_none=True)
+    data["analysis"] = validate_analysis_config(data["analysis"])
+    return save_preset(project, data)
+
+
+@app.get("/api/consultation-config")
+def get_consultation_config():
+    from autorag.comparisons import consultation_config
+    with project.lock(wait_seconds=READ_LOCK_WAIT_SECONDS):
+        return consultation_config(project)
+
+
+@app.put("/api/consultation-config")
+def put_consultation_config(body: ConsultationRequest):
+    from autorag.comparisons import save_consultation_config
+    from autorag.evaluation import validate_analysis_config
+    data = body.model_dump()
+    data["analysis"] = validate_analysis_config(data["analysis"])
+    return save_consultation_config(project, data)
+
+
+def _comparison_request(data):
+    """Freeze presets/settings at receipt; all runs retain their exact configuration."""
+    from autorag.comparisons import consultation_config, load_preset, validate_config
+    from autorag.evaluation import validate_analysis_config
+    data = deepcopy(data)
+    if data.get("preset_id") and data.get("consultation"):
+        raise ValueError("Escolha um conjunto salvo ou a configuração da consulta.")
+    if data.get("experiments") is not None and data.get("preset_id"):
+        raise ValueError("Escolha experimentos explícitos ou um conjunto salvo.")
+    if data.get("preset_id"):
+        with project.lock(wait_seconds=READ_LOCK_WAIT_SECONDS):
+            preset = load_preset(project, data["preset_id"])
+        data["experiments"] = deepcopy(preset["experiments"])
+        if data.get("analysis") is None:
+            data["analysis"] = deepcopy(preset.get("analysis"))
+        data.pop("preset_id", None)
+    elif data.pop("consultation", False):
+        if data.get("experiments") is not None:
+            raise ValueError("Escolha a configuração de consulta ou experimentos explícitos.")
+        with project.lock(wait_seconds=READ_LOCK_WAIT_SECONDS):
+            current = consultation_config(project)
+        data["experiments"] = deepcopy(current["experiments"]) or None
+        if data.get("analysis") is None:
+            data["analysis"] = deepcopy(current.get("analysis"))
+    if data.get("experiments") is not None:
+        with project.lock(wait_seconds=READ_LOCK_WAIT_SECONDS):
+            data["experiments"] = [validate_config(project, config) for config in data["experiments"]]
+    if data.get("experiments") and len({config["id"] for config in data["experiments"]}) != len(data["experiments"]):
+        raise ValueError("Os experimentos da comparação devem ter IDs diferentes.")
+    data["analysis"] = validate_analysis_config(data.get("analysis"))
+    if not data["query"].strip():
+        raise ValueError("Informe o texto da consulta.")
+    return data
+
+
+def _run_comparison(data):
+    from autorag.comparisons import run_comparison, save_comparison
+    from autorag.evaluation import evaluate_comparison
+    output = run_comparison(project, data)
+    output["analysis_config"] = deepcopy(data["analysis"])
+    output = evaluate_comparison(output, data.get("analysis"))
+    save_comparison(project, output)
+    return output
+
+
+@app.post("/api/comparisons")
+def add_comparison(body: ComparisonRequest):
+    data = _comparison_request(body.model_dump(exclude_none=True))
+    return submit("comparison", lambda: _run_comparison(data))
+
+
+@app.get("/api/comparisons")
+def get_comparisons():
+    from autorag.comparisons import list_comparisons
+    with project.lock(wait_seconds=READ_LOCK_WAIT_SECONDS):
+        return {"comparisons": list_comparisons(project)}
+
+
+@app.get("/api/comparisons/{comparison_id}/export")
+def download_comparison(comparison_id: str, format: str = "json"):
+    from autorag.comparisons import export_comparison, export_vector_bundle
+    from fastapi.responses import Response
+    if format not in {"json", "jsonl", "csv", "config", "vectors"}:
+        raise ValueError("Formato inválido. Escolha json, jsonl, csv, config ou vectors.")
+    if (not re.fullmatch(r"comparison_[A-Za-z0-9_]+", comparison_id) or
+            not (project.root/"estudos"/"comparacoes"/comparison_id/"resultado.json").is_file()):
+        raise HTTPException(404, "Comparação não encontrada.")
+    try:
+        if format == "vectors":
+            # The persisted bundle is produced before the comparison job's
+            # checkpoint. Its helper owns verification and its project lock.
+            content = export_vector_bundle(project, comparison_id, persist=False)
+        else:
+            with project.lock(wait_seconds=READ_LOCK_WAIT_SECONDS):
+                content = export_comparison(project, comparison_id, format=format)
+    except FileNotFoundError:
+        raise HTTPException(404, "Comparação não encontrada.") from None
+    types = {"json": "application/json", "jsonl": "application/x-ndjson",
+             "csv": "text/csv", "config": "application/json", "vectors": "application/zip"}
+    extension = "json" if format == "config" else "zip" if format == "vectors" else format
+    filename = comparison_id + ("-config" if format == "config" else "-vetores" if format == "vectors" else "") + "." + extension
+    return Response(content, media_type=types[format],
+                    headers={"Content-Disposition": 'attachment; filename="' + filename + '"'})
+
+
+@app.post("/api/comparisons/{comparison_id}/reproduce")
+def reproduce_saved_comparison(comparison_id: str):
+    from autorag.comparisons import reproduce_comparison
+    if (not re.fullmatch(r"comparison_[A-Za-z0-9_]+", comparison_id) or
+            not (project.root/"estudos"/"comparacoes"/comparison_id/"resultado.json").is_file()):
+        raise HTTPException(404, "Comparação não encontrada.")
+    return submit("comparison-reproduce", lambda: reproduce_comparison(project, comparison_id))
+
+
+@app.get("/api/comparisons/{comparison_id}")
+def get_comparison(comparison_id: str):
+    from autorag.comparisons import load_comparison
+    if (not re.fullmatch(r"comparison_[A-Za-z0-9_]+", comparison_id) or
+            not (project.root/"estudos"/"comparacoes"/comparison_id/"resultado.json").is_file()):
+        raise HTTPException(404, "Comparação não encontrada.")
+    try:
+        with project.lock(wait_seconds=READ_LOCK_WAIT_SECONDS):
+            return load_comparison(project, comparison_id)
+    except FileNotFoundError:
+        raise HTTPException(404, "Comparação não encontrada.") from None
+
+
 class SearchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     query: str = Field(min_length=1, max_length=50000)
-    profile_id: str = Field(min_length=1, max_length=100)
-    categories: list[str] = Field(default_factory=lambda: ["perguntas_sugeridas", "resposta_sintese", "resumo", "conteudo_fonte"], min_length=1, max_length=8)
-    mode: str = "semantic"
-    metric: str = Field(default="cosine", pattern="^(cosine|euclidean)$")
+    profile_id: str | None = Field(default=None, min_length=1, max_length=100)
+    categories: list[str] = Field(default_factory=lambda: ["conteudo_fonte"], min_length=1, max_length=8)
+    mode: str = "vector"
+    metric: str = Field(default="cosine", pattern="^(cosine|euclidean|manhattan)$")
     top_k: int = Field(default=6, ge=1, le=100)
     n_neighbors: int = Field(default=15, ge=2, le=200)
     n_components: int = Field(default=5, ge=2, le=50)
@@ -340,8 +510,14 @@ class SearchRequest(BaseModel):
 
 @app.post("/api/search")
 def search(body: SearchRequest):
-    if body.mode not in {"semantic", "laboratory"} or any(c not in CATEGORIES for c in body.categories):
+    if body.mode not in {"vector", "semantic", "laboratory"} or any(c not in CATEGORIES for c in body.categories):
         raise ValueError("Modo ou categoria desconhecida.")
+    if body.profile_id is None:
+        explicit = body.model_fields_set - {"query"}
+        if explicit:
+            raise ValueError("Informe profile_id para parâmetros explícitos ou envie somente query para usar a configuração de consulta.")
+        data = _comparison_request({"query": body.query, "consultation": True})
+        return submit("comparison", lambda: _run_comparison(data))
     return submit("search", lambda: run_search(project, body.model_dump()))
 
 
