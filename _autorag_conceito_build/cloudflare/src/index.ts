@@ -34,10 +34,6 @@ export class AutoRAGContainer extends Container<Env> {
     GEMINI_API_KEY: this.env.GEMINI_API_KEY || '',
   };
 
-  static outboundByHost = {
-    'storage.autorag': (request: Request, env: Env) => storageRequest(request, env.STATE),
-  };
-
   private activeRequests = 0;
   private idleBarrier: Promise<void> | undefined;
 
@@ -70,6 +66,12 @@ export class AutoRAGContainer extends Container<Env> {
     finally { this.idleBarrier = undefined; release(); }
   }
 }
+
+// Use the SDK's inherited setter so ContainerProxy receives this handler.
+// A static class field would shadow the setter and leave its registry empty.
+AutoRAGContainer.outboundByHost = {
+  'storage.autorag': (request: Request, env: Env) => storageRequest(request, env.STATE),
+};
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
