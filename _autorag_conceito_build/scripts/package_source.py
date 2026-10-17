@@ -5,7 +5,7 @@ import zipfile
 
 APP = Path(__file__).resolve().parents[1]
 ROOT = APP.parent
-TOP_FILES = ['README.md', 'APLICACAO_WEB.md', '.gitignore', '.github/workflows/ci.yml']
+TOP_FILES = ['README.md', 'APLICACAO_WEB.md', '.gitignore', '.github/workflows/ci.yml', '.github/workflows/cloudflare-checks.yml']
 APP_FILES = {'.gitignore', '.dockerignore', '.env.example', 'Dockerfile', 'compose.yaml', 'package.json', 'wrangler.jsonc'}
 EXTENSIONS = {'.py', '.bat', '.ps1', '.md', '.txt', '.js', '.mjs', '.html', '.css'}
 
@@ -18,6 +18,16 @@ def source_files():
     for path in APP.iterdir():
         if path.is_file() and (path.name in APP_FILES or path.suffix in {'.py','.bat','.md'} or path.name.startswith('requirements') and path.suffix=='.txt'):
             yield path
+    cloudflare = APP/'cloudflare'
+    if cloudflare.is_dir():
+        config_names = {'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'tsconfig.json', 'wrangler.jsonc', 'Dockerfile', '.gitignore'}
+        for path in cloudflare.iterdir():
+            if path.is_file() and (path.name in config_names or path.suffix in {'.py', '.md', '.ts', '.mjs'}):
+                yield path
+        for folder in ['src', 'scripts', 'tests']:
+            for path in (cloudflare/folder).rglob('*'):
+                if path.is_file() and path.suffix in {'.py', '.ts', '.js', '.mjs', '.md'} and '__pycache__' not in path.parts:
+                    yield path
     for folder in ['autorag','web','scripts','tests']:
         for path in (APP/folder).rglob('*'):
             if path.is_file() and path.suffix in EXTENSIONS and not any(part in {'__pycache__','.venv','node_modules','.git'} for part in path.relative_to(APP).parts):

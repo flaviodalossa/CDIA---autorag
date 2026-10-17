@@ -43,7 +43,13 @@ O laboratório permite escolher perfil, categorias, métrica cosseno/euclidiana,
 
 A consulta e os resultados podem ser exportados em JSON. O histórico web guarda execuções em `estudos/web`; o histórico original permanece em `estudos/execucoes`. As exportações ZIP completas e análises originais continuam na CLI/desktop. Operações de ingestão, geração e busca usam uma fila Python e polling de jobs; reiniciar o serviço marca jobs interrompidos para reenvio.
 
-## GitHub → Cloudflare Pages
+## Publicação completa no Cloudflare
+
+Os fontes estão em [flaviodalossa/CDIA---autorag](https://github.com/flaviodalossa/CDIA---autorag). A configuração em `cloudflare/` hospeda frontend e backend no Cloudflare usando Workers, Containers e R2. Consulte [o guia de Cloudflare](./_autorag_conceito_build/cloudflare/README.md) para autenticação, recursos e publicação pelo GitHub integrado a Workers Builds.
+
+A alternativa abaixo usa Pages com um backend Python hospedado separadamente.
+
+## Alternativa: Cloudflare Pages
 
 Para gerar um ZIP somente com os fontes, execute `python scripts/package_source.py` dentro da pasta da aplicação. O arquivo `autorag-web-v0.1.zip` será criado na pasta anterior.
 
@@ -76,7 +82,7 @@ git push -u origin main
 
 4. Faça deploy pelo GitHub integrado ao Pages. Abra o site, informe o token e confirme o estado da base. Importe documentos e gere embeddings no projeto persistente do backend. Para migrar a base atual, transfira `dados`, `indices` e, se necessário, `estudos` diretamente ao volume privado, mantendo caminhos relativos.
 
-O processamento científico e os modelos locais rodam no backend Python. O projeto está preparado para Cloudflare como interface e proxy; publicar apenas os arquivos estáticos deixa a interface sem processamento até configurar o backend. Não foi criado repositório remoto ou feito deploy nesta entrega.
+O processamento científico e os modelos locais rodam no backend Python. O projeto está preparado para Cloudflare como interface e proxy; publicar apenas os arquivos estáticos deixa a interface sem processamento até configurar o backend. Os fontes foram publicados no GitHub; a publicação no Cloudflare depende da autenticação e dos recursos da conta.
 
 As instruções seguem a documentação de [integração Git do Cloudflare Pages](https://developers.cloudflare.com/pages/configuration/git-integration/) e [Functions em modo avançado](https://developers.cloudflare.com/pages/functions/advanced-mode/). O agrupamento segue as APIs oficiais de [UMAP para clustering](https://umap-learn.readthedocs.io/en/latest/clustering.html) e [HDBSCAN](https://hdbscan.readthedocs.io/en/latest/api.html).
 

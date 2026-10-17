@@ -19,3 +19,10 @@ tests
 *.zip
 
 previews
+
+**/node_modules
+**/.pnpm-store
+**/.dev.vars
+**/.dev.vars.*
+**/.wrangler
+cloudflare/dist

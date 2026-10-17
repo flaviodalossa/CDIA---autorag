@@ -26,3 +26,10 @@
 **/.env.local
 **/node_modules/
 **/.wrangler/
+
+!/_autorag_conceito_build/cloudflare/
+**/.dev.vars
+**/.dev.vars.*
+**/cloudflare/dist/
+**/cloudflare/.assets/
+**/.pnpm-store/

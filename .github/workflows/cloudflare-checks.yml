@@ -1,0 +1,26 @@
+name: Cloudflare build checks
+on: [push, pull_request]
+jobs:
+  cloudflare:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: _autorag_conceito_build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: '_autorag_conceito_build/requirements*.txt'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm install --global pnpm@11.25.0
+      - run: pnpm --dir cloudflare install --frozen-lockfile
+      - run: python -m pip install -r requirements-web.txt
+      - run: python -m unittest discover -s cloudflare/tests -p 'test_*.py' -v
+      - run: pnpm --dir cloudflare run build
+      - run: pnpm --dir cloudflare run check
+      - run: pnpm --dir cloudflare test
+      - run: docker build -f cloudflare/Dockerfile -t autorag-cloudflare:ci .
