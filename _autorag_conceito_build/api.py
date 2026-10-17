@@ -442,6 +442,7 @@ class ProfileRequest(BaseModel):
     model: str = Field(min_length=1, max_length=200)
     dimensions: int = Field(ge=1, le=8192)
     endpoint: str | None = None
+    activate: bool = True
 
 
 @app.post("/api/profiles")
@@ -452,7 +453,7 @@ def add_profile(body: ProfileRequest):
     if body.provider not in {"openai", "gemini", "ollama", "sentence_transformers"}:
         raise ValueError("Provedor desconhecido.")
     return register_profile(project, body.provider, body.model, body.dimensions,
-                            endpoint=endpoint if body.provider == "ollama" else None,
+                            activate=body.activate, endpoint=endpoint if body.provider == "ollama" else None,
                             models_dir=str(project.root/"modelos"))
 
 

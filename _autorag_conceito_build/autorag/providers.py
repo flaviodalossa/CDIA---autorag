@@ -54,8 +54,9 @@ def hf_local_path(model, models_dir=None):
     candidate = Path(model).expanduser()
     if candidate.is_dir():
         return candidate.resolve()
-    if models_dir:
-        candidate = Path(models_dir) / model.replace("/", "--")
+    directories = [models_dir, os.getenv("AUTORAG_MODELS_DIR")]
+    for directory in dict.fromkeys(value for value in directories if value):
+        candidate = Path(directory) / model.replace("/", "--")
         if candidate.is_dir():
             return candidate.resolve()
     cache = Path(os.getenv("HF_HUB_CACHE") or (Path(os.getenv("HF_HOME", str(Path.home()/".cache"/"huggingface"))) / "hub"))
@@ -243,7 +244,17 @@ class SentenceProvider(Provider):
             from sentence_transformers import SentenceTransformer
         except ImportError as exc:
             raise RuntimeError("Instale os opcionais locais pelo script 05_instalar_modelo_leve.bat.") from exc
-        self.model = SentenceTransformer(profile["caminho_local"], local_files_only=True, trust_remote_code=False)
+        options = {"local_files_only": True, "trust_remote_code": False}
+        device = os.getenv("AUTORAG_SENTENCE_DEVICE", "").strip()
+        if device:
+            options["device"] = device
+        threads = os.getenv("AUTORAG_SENTENCE_NUM_THREADS", "")
+        if threads:
+            if not threads.isdigit() or not 1 <= int(threads) <= 256:
+                raise ValueError("AUTORAG_SENTENCE_NUM_THREADS deve ser inteiro entre 1 e 256.")
+            import torch
+            torch.set_num_threads(int(threads))
+        self.model = SentenceTransformer(profile["caminho_local"], **options)
 
     def segments(self, value, role="documento"):
         # Conservador por bytes; confere com o tokenizador real antes de enviar.
@@ -255,11 +266,17 @@ class SentenceProvider(Provider):
         return pieces
 
     def embed(self, texts, role="documento"):
+        options = {"normalize_embeddings": False, "convert_to_numpy": True}
+        batch_size = os.getenv("AUTORAG_SENTENCE_BATCH_SIZE", "")
+        if batch_size:
+            if not batch_size.isdigit() or not 1 <= int(batch_size) <= 8192:
+                raise ValueError("AUTORAG_SENTENCE_BATCH_SIZE deve ser inteiro entre 1 e 8192.")
+            options.update(batch_size=int(batch_size), show_progress_bar=False)
         prepared = [self.prepare(value, role) for value in texts]
         for value in prepared:
             if len(self.model.tokenizer.encode(value, add_special_tokens=True)) > self.model.max_seq_length:
                 raise ValueError("Entrada excede o limite do modelo; nenhum truncamento automático será aceito.")
-        return np.asarray(self.model.encode(prepared, normalize_embeddings=False, convert_to_numpy=True))
+        return np.asarray(self.model.encode(prepared, **options))
 
 
 class OpenAIProvider(Provider):

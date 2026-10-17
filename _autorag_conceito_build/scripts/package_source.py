@@ -24,9 +24,9 @@ def source_files():
         for path in cloudflare.iterdir():
             if path.is_file() and (path.name in config_names or path.suffix in {'.py', '.md', '.ts', '.mjs'}):
                 yield path
-        for folder in ['src', 'scripts', 'tests']:
+        for folder in ['src', 'scripts', 'tests', 'licenses']:
             for path in (cloudflare/folder).rglob('*'):
-                if path.is_file() and path.suffix in {'.py', '.ts', '.js', '.mjs', '.md'} and '__pycache__' not in path.parts:
+                if path.is_file() and path.suffix in {'.py', '.ts', '.js', '.mjs', '.md', '.txt'} and '__pycache__' not in path.parts:
                     yield path
     for folder in ['autorag','web','scripts','tests']:
         for path in (APP/folder).rglob('*'):

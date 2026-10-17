@@ -64,7 +64,7 @@ jobs:
               assert host['blobMax'] == 1 and host['reqConcurrent'] == 1
           print('Pinned regctl CLI settings verified without a registry login or request.')
           PY
-      - name: Build Python and pinned Ollama CPU models
+      - name: Build Python and pinned Ollama and MiniLM CPU models
         run: docker build -f cloudflare/Dockerfile -t autorag-cloudflare:ci .
       - name: Keep the image below the standard-1 8 GB disk limit
         run: |
@@ -74,6 +74,6 @@ jobs:
           print(f'Uncompressed image size: {size:,} bytes')
           assert size < 8_000_000_000, 'Image exceeds the standard-1 disk limit'
           PY
-      - name: Verify both pinned models and embeddings offline within standard-1 resources
+      - name: Verify all three pinned models and embeddings offline within standard-1 resources
         timeout-minutes: 15
         run: docker run --rm --network none --memory 4g --memory-swap 4g --cpus 0.5 --entrypoint python autorag-cloudflare:ci -m cloudflare.verify_models --smoke

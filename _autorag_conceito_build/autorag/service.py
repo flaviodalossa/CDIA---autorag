@@ -10,12 +10,15 @@ from .core import (CATEGORIES, Project, category_text, digest, documents, full_t
 from .providers import get_provider, profile_spec
 
 
-def register_profile(project, provider, model, dimensions=None, **options):
+def register_profile(project, provider, model, dimensions=None, *, activate=True, **options):
+    if not isinstance(activate, bool):
+        raise ValueError("activate deve ser booleano.")
     profile = profile_spec(provider, model, dimensions, **options)
     with project.lock():
         config = project.config()
         config["perfis"][profile["perfil_id"]] = profile
-        config["perfil_ativo_id"] = profile["perfil_id"]
+        if activate:
+            config["perfil_ativo_id"] = profile["perfil_id"]
         project.save_config(config)
         if project.base_path.exists():
             sync_base(project)
