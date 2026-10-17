@@ -44,6 +44,9 @@ jobs:
                           'DOCKER_CONFIG': str(docker_config),
                           'HTTP_PROXY': 'http://127.0.0.1:9',
                           'HTTPS_PROXY': 'http://127.0.0.1:9', 'NO_PROXY': ''})
+              subprocess.run([str(binary), 'config', 'set', '--docker-cred=false'], env=env, check=True)
+              disabled = json.loads((root / 'regctl.json').read_text())
+              assert disabled['incDockerCred'] is False
               for args in [
                   ['config', 'set', '--docker-cred'],
                   ['config', 'set', '--blob-limit', str(CHUNK_BYTES * 2)],
@@ -53,7 +56,9 @@ jobs:
                   subprocess.run([str(binary), *args], env=env, check=True)
               config = json.loads((root / 'regctl.json').read_text())
               host = config['hosts'][REGISTRY]
-              assert config['incDockerCred'] is True
+              # v0.11.6 represents enabled Docker credentials as nil/omitted;
+              # root.go enables WithDockerCreds when this pointer is nil or true.
+              assert 'incDockerCred' not in config
               assert config['blobLimit'] == CHUNK_BYTES * 2
               assert host['blobChunk'] == CHUNK_BYTES
               assert host['blobMax'] == 1 and host['reqConcurrent'] == 1
