@@ -1,5 +1,5 @@
 import { Container, ContainerProxy, getContainer } from '@cloudflare/containers';
-import { limitedBody, storageRequest, validToken } from './storage.mjs';
+import { limitedBody, resolveApiToken, storageRequest, validToken } from './storage.mjs';
 
 export { ContainerProxy };
 
@@ -7,7 +7,8 @@ interface Env {
   ASSETS: Fetcher;
   BACKEND: DurableObjectNamespace<AutoRAGContainer>;
   STATE: R2Bucket;
-  AUTORAG_API_TOKEN: string;
+  AUTORAG_API_TOKEN?: string;
+  api_token_autorag?: string;
   OPENAI_API_KEY?: string;
   GEMINI_API_KEY?: string;
 }
@@ -28,7 +29,7 @@ export class AutoRAGContainer extends Container<Env> {
   sleepAfter = '10m';
   enableInternet = true;
   envVars = {
-    AUTORAG_API_TOKEN: this.env.AUTORAG_API_TOKEN,
+    AUTORAG_API_TOKEN: resolveApiToken(this.env),
     OPENAI_API_KEY: this.env.OPENAI_API_KEY || '',
     GEMINI_API_KEY: this.env.GEMINI_API_KEY || '',
   };
@@ -55,13 +56,13 @@ export class AutoRAGContainer extends Container<Env> {
     this.idleBarrier = new Promise<void>(resolve => { release = resolve; });
     try {
       const response = await this.containerFetch('http://container/internal/cloud-state', {
-        headers: { authorization: 'Bearer ' + this.env.AUTORAG_API_TOKEN },
+        headers: { authorization: 'Bearer ' + resolveApiToken(this.env) },
       });
       if (!response.ok) { this.renewActivityTimeout(); return; }
       const state = await response.json() as { active: boolean };
       if (state.active) { this.renewActivityTimeout(); return; }
       const checkpoint = await this.containerFetch('http://container/internal/checkpoint', {
-        method: 'POST', headers: { authorization: 'Bearer ' + this.env.AUTORAG_API_TOKEN },
+        method: 'POST', headers: { authorization: 'Bearer ' + resolveApiToken(this.env) },
       });
       if (!checkpoint.ok) { this.renewActivityTimeout(); return; }
       await this.stop();
@@ -81,8 +82,9 @@ export default {
       return new Response(response.body, { status: response.status, headers });
     }
     if (!['GET', 'POST'].includes(request.method)) return jsonError('Método não permitido.', 405);
-    if (!env.AUTORAG_API_TOKEN || env.AUTORAG_API_TOKEN.length < 32) return jsonError('Configure o segredo AUTORAG_API_TOKEN no Worker.', 503);
-    if (!await validToken(request.headers.get('Authorization'), env.AUTORAG_API_TOKEN)) return jsonError('Informe o token de acesso nas configurações.', 401);
+    const apiToken = resolveApiToken(env);
+    if (apiToken.length < 32) return jsonError('Configure o segredo AUTORAG_API_TOKEN no Worker.', 503);
+    if (!await validToken(request.headers.get('Authorization'), apiToken)) return jsonError('Informe o token de acesso nas configurações.', 401);
     const headers = new Headers({ Authorization: request.headers.get('Authorization')! });
     if (request.headers.has('Content-Type')) headers.set('Content-Type', request.headers.get('Content-Type')!);
     let body: Uint8Array | undefined;

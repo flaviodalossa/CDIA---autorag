@@ -11,7 +11,7 @@ Containers exige Workers Paid, atualmente US$ 5/mês mais consumo. R2 e requisi�
 3. Use a raiz de build _autorag_conceito_build, que contém o contexto completo do Dockerfile. O nome do Worker deve ser autorag-normativo.
 4. Build command: cd cloudflare && corepack pnpm install --frozen-lockfile && corepack pnpm run build
 5. Deploy command: cd cloudflare && corepack pnpm exec wrangler deploy
-6. Cadastre AUTORAG_API_TOKEN como segredo de runtime do Worker, com pelo menos 32 caracteres aleatórios. Use esse mesmo token nas configurações da interface. Cadastre OPENAI_API_KEY ou GEMINI_API_KEY como segredo de runtime se usar esses provedores. Não coloque as chaves em variáveis públicas, no código ou nos assets.
+6. Cadastre AUTORAG_API_TOKEN como segredo de runtime do Worker, com pelo menos 32 caracteres aleatórios. Use esse mesmo token nas configurações da interface. O nome existente api_token_autorag também é aceito como alias; se ambos estiverem cadastrados, AUTORAG_API_TOKEN prevalece. O Worker repassa o valor resolvido ao backend com o nome canônico. Cadastre OPENAI_API_KEY ou GEMINI_API_KEY como segredo de runtime se usar esses provedores. Não coloque as chaves em variáveis públicas, no código ou nos assets.
 7. Execute o build de produção. Workers Builds consegue construir o Dockerfile; Docker local é necessário somente para desenvolvimento/deploy local.
 8. Aguarde a primeira provisão do container. Abra a URL workers.dev e verifique Configurações > Conexão. Uma resposta autenticada de /api/status confirma que o backend está atendendo.
 

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { limitedBody, storageRequest, validToken } from '../src/storage.mjs';
+import { limitedBody, resolveApiToken, storageRequest, validToken } from '../src/storage.mjs';
 
 const token = 'a'.repeat(64);
 test('access token is checked before starting a container', async () => {
@@ -36,4 +36,19 @@ test('job listing uses private R2 prefix and opaque cursor', async () => {
   const response = await storageRequest(new Request('http://storage.autorag/jobs?cursor=previous'),bucket);
   assert.deepEqual(options,{prefix:'v1/jobs/',cursor:'previous'});
   assert.deepEqual(await response.json(),{keys:['job_a.json'],cursor:'next'});
+});
+
+test('legacy runtime secret alias uses the same token without changing its value', async () => {
+  const env = {api_token_autorag: token};
+  assert.equal(resolveApiToken(env), token);
+  assert.equal(await validToken('Bearer ' + token, resolveApiToken(env)), true);
+  assert.equal(resolveApiToken({}), '');
+});
+test('canonical runtime secret takes precedence whenever both names are configured', async () => {
+  const canonical = 'b'.repeat(64);
+  const env = {AUTORAG_API_TOKEN: canonical, api_token_autorag: token};
+  assert.equal(resolveApiToken(env), canonical);
+  assert.equal(await validToken('Bearer ' + canonical, resolveApiToken(env)), true);
+  assert.equal(await validToken('Bearer ' + token, resolveApiToken(env)), false);
+  assert.equal(resolveApiToken({AUTORAG_API_TOKEN: '', api_token_autorag: token}), '');
 });

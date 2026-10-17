@@ -31,6 +31,11 @@ export async function storageRequest(request, bucket) {
   return new Response(null, { status: 204 });
 }
 
+/** Normalize an existing runtime secret alias before auth or container startup. */
+export function resolveApiToken(env) {
+  return env.AUTORAG_API_TOKEN ?? env.api_token_autorag ?? '';
+}
+
 export async function validToken(supplied, expected) {
   if (!expected || expected.length < 32 || !supplied?.startsWith('Bearer ')) return false;
   const encode = value => new TextEncoder().encode(value);
