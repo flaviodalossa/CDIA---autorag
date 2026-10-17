@@ -45,7 +45,10 @@
       if (body && !(body instanceof FormData)) headers['Content-Type'] = 'application/json';
       response = await fetch(apiUrl(path), {method, headers, body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined, signal: controller.signal, credentials: 'same-origin'});
       const contentType = response.headers.get('content-type') || '';
-      if (!contentType.includes('application/json')) throw new Error('O serviço não retornou JSON. Verifique o endereço da API e a configuração do proxy /api.');
+      if (!contentType.includes('application/json')) {
+        if (response.status >= 500) throw new Error('O serviço apresentou uma falha (HTTP ' + response.status + '). Aguarde alguns instantes e tente novamente.');
+        throw new Error('A API respondeu em um formato inesperado (HTTP ' + response.status + '). Confira a URL da aplicação nas configurações.');
+      }
       const data = await response.json();
       if (!response.ok) {
         const detail = data.detail || data.error || data.message;

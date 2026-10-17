@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import tempfile
@@ -11,6 +12,10 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 import numpy as np
+
+
+class ProjectBusyError(RuntimeError):
+    """The project lock is owned by another operation."""
 
 
 CATEGORIES = (
@@ -232,12 +237,21 @@ class Project:
         return read_json(self.base_path)
 
     @contextlib.contextmanager
-    def lock(self):
+    def lock(self, wait_seconds=0.0):
+        """Keep mutations fail-fast; readers may opt into a bounded wait."""
+        if type(wait_seconds) not in (int, float) or not math.isfinite(wait_seconds) or wait_seconds < 0:
+            raise ValueError("O tempo de espera do lock deve ser finito e não negativo.")
         path = self.data / ".escrita.lock"
-        try:
-            handle = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        except FileExistsError as exc:
-            raise RuntimeError("Há outra operação em andamento. Se um processo foi interrompido, feche-o e remova dados/.escrita.lock.") from exc
+        deadline = time.monotonic() + wait_seconds
+        while True:
+            try:
+                handle = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                break
+            except FileExistsError as exc:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise ProjectBusyError("Há outra operação em andamento. Aguarde a conclusão e tente novamente.") from exc
+                time.sleep(min(0.025, remaining))
         try:
             with os.fdopen(handle, "w") as stream:
                 stream.write(str(os.getpid()))

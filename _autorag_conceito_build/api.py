@@ -19,7 +19,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
-from autorag.core import CATEGORIES, Project, now, read_json, uid, write_json
+from autorag.core import CATEGORIES, Project, ProjectBusyError, now, read_json, uid, write_json
 from autorag.llm import LLMError
 from autorag.providers import available_models, get_provider
 from autorag.service import generate, register_profile, require_profile
@@ -32,6 +32,7 @@ job_lock = threading.Lock()
 jobs = {}
 MAX_REQUEST_BYTES = 25 * 1024 * 1024
 MAX_JOBS = 50
+READ_LOCK_WAIT_SECONDS = 2.0
 
 
 @asynccontextmanager
@@ -89,6 +90,14 @@ async def invalid_llm(request, exc):
     return JSONResponse({"detail": str(exc)}, status_code=400)
 
 
+@app.exception_handler(ProjectBusyError)
+async def project_busy(request, exc):
+    return JSONResponse(
+        {"detail": "A base está sendo utilizada por outra operação. Aguarde alguns instantes e tente novamente."},
+        status_code=409, headers={"Retry-After": "1"},
+    )
+
+
 def submit(kind, function):
     with job_lock:
         if sum(j["status"] in {"queued", "running"} for j in jobs.values()) >= MAX_JOBS:
@@ -137,7 +146,7 @@ def health():
 
 @app.get("/api/status")
 def get_status():
-    with project.lock():
+    with project.lock(wait_seconds=READ_LOCK_WAIT_SECONDS):
         result = status(project)
     result["local_paths_enabled"] = bool(os.getenv("AUTORAG_ALLOWED_SOURCE_ROOTS"))
     return result
@@ -150,7 +159,7 @@ def get_models():
         os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434"),
         str(project.root/"modelos"),
     )
-    with project.lock():
+    with project.lock(wait_seconds=READ_LOCK_WAIT_SECONDS):
         profiles = list(project.config()["perfis"].values())
     public = []
     fields = ("provedor", "modelo", "dimensoes", "dimensoes_nativas", "descricao", "custo", "reducao")
@@ -278,7 +287,7 @@ async def import_prepared(request: Request):
 def export_prepared(request: Request):
     _require_transfer_auth(request)
     from autorag.base_import import canonical_digest, DIGEST_ALGORITHM
-    with project.lock():
+    with project.lock(wait_seconds=READ_LOCK_WAIT_SECONDS):
         if not project.base_path.exists():
             raise HTTPException(404, "Nenhuma base foi importada.")
         base = project.base()
