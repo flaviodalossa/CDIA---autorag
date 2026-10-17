@@ -1,7 +1,7 @@
-"""Query-aware UMAP/HDBSCAN retrieval and an independent source-text baseline.
+"""Independent UMAP reduction, HDBSCAN clustering and original-space baseline.
 
-UMAP coordinates determine cluster membership only. Every retrieval distance is
-measured in the original L2-normalized embedding space, never in the projection.
+UMAP alone ranks in its unnormalized projection. Clustering ranks in the
+original L2-normalized embedding space, with or without UMAP preprocessing.
 The input query is fitted together with the chosen document vector categories.
 """
 from __future__ import annotations
@@ -20,6 +20,7 @@ _OPTION_KEYS = {
     "metric", "umap_metric", "cluster_metric", "n_neighbors", "n_components",
     "min_dist", "min_cluster_size", "min_samples", "random_state",
     "cluster_selection_method", "allow_single_cluster", "dendrogram",
+    "use_umap", "use_hdbscan",
 }
 
 
@@ -46,6 +47,7 @@ def _parameters(options):
         "min_cluster_size": 5, "min_samples": 2, "random_state": 42,
         "cluster_selection_method": "eom", "allow_single_cluster": False,
         "dendrogram": False,
+        "use_umap": True, "use_hdbscan": True,
     }
     params.update(opts)
     for key in ("metric", "umap_metric", "cluster_metric"):
@@ -63,9 +65,11 @@ def _parameters(options):
     params["min_dist"] = float(value)
     if params["cluster_selection_method"] not in ("eom", "leaf"):
         raise ValueError("cluster_selection_method deve ser eom ou leaf.")
-    for key in ("allow_single_cluster", "dendrogram"):
+    for key in ("allow_single_cluster", "dendrogram", "use_umap", "use_hdbscan"):
         if not isinstance(params[key], bool):
             raise ValueError(f"{key} deve ser booleano.")
+    if params["dendrogram"] and not params["use_hdbscan"]:
+        raise ValueError("O dendrograma exige agrupamento por HDBSCAN.")
     return params
 
 
@@ -133,10 +137,12 @@ def _distances(matrix, query, metric):
 
 
 def _rank(records, matrix, query, metric, indices, top_k, by_coverage=False,
-          minimum_similarity=None, maximum_distance=None):
+          minimum_similarity=None, maximum_distance=None, ranking_distances=None,
+          projected_distances=None, distance_space="original_l2_normalized"):
     if not indices:
         return [], 0
-    distances = _distances(matrix, query, metric)
+    original_distances = _distances(matrix, query, metric)
+    distances = original_distances if ranking_distances is None else ranking_distances
     if minimum_similarity is not None:
         indices = [i for i in indices if float(np.clip(matrix[i] @ query, -1, 1)) >= minimum_similarity]
     if maximum_distance is not None:
@@ -152,12 +158,22 @@ def _rank(records, matrix, query, metric, indices, top_k, by_coverage=False,
         first = records[best]
         categories = sorted({records[index]["category"] for index in rows})
         matches = [{**records[index], "distance": float(distances[index]),
+                    "distance_space": distance_space,
+                    "original_distance": float(original_distances[index]),
+                    "original_cosine_similarity": float(np.clip(matrix[index] @ query, -1, 1)),
+                    "cosine_similarity_space": "original_l2_normalized",
+                    **({"projected_distance": float(projected_distances[index])} if projected_distances is not None else {}),
                     "cosine_similarity": float(np.clip(matrix[index] @ query, -1, 1))}
                    for index in rows]
         results.append({
             "topic_id": topic_id, "document_id": first["document_id"],
             "title": first["title"], "text": first["text"], "source": first["source"],
             "distance": float(distances[best]),
+            "distance_space": distance_space,
+            "original_distance": float(original_distances[best]),
+            "original_cosine_similarity": matches[0]["original_cosine_similarity"],
+            "cosine_similarity_space": "original_l2_normalized",
+            **({"projected_distance": float(projected_distances[best])} if projected_distances is not None else {}),
             "cosine_similarity": matches[0]["cosine_similarity"],
             "category_count": len(categories), "categories": categories,
             "vector_count": len(rows), "matched_vectors": matches,
@@ -172,12 +188,11 @@ def _rank(records, matrix, query, metric, indices, top_k, by_coverage=False,
     return results, eligible
 
 
-def _fit_clusters(matrix, params):
+def _fit_umap(matrix, params):
     try:
         from umap import UMAP
-        from hdbscan import HDBSCAN
     except ImportError as exc:
-        raise RuntimeError("Instale umap-learn e hdbscan para a recuperação semântica.") from exc
+        raise RuntimeError("Instale umap-learn para a redução UMAP.") from exc
     reducer = UMAP(
         n_neighbors=params["n_neighbors"], n_components=params["n_components"],
         metric=params["umap_metric"], min_dist=params["min_dist"],
@@ -187,6 +202,14 @@ def _fit_clusters(matrix, params):
     projected = np.asarray(reducer.fit_transform(matrix), dtype=np.float64)
     if projected.shape != (len(matrix), params["n_components"]) or not np.all(np.isfinite(projected)):
         raise RuntimeError("UMAP produziu uma projeção inválida.")
+    return projected
+
+
+def _fit_hdbscan(matrix, params):
+    try:
+        from hdbscan import HDBSCAN
+    except ImportError as exc:
+        raise RuntimeError("Instale hdbscan para o agrupamento HDBSCAN.") from exc
     # Cosine requires the generic distance backend; Euclidean/Manhattan can
     # use efficient trees. An exact MST and one worker retain repeatability.
     model = HDBSCAN(
@@ -195,8 +218,33 @@ def _fit_clusters(matrix, params):
         algorithm="generic" if params["cluster_metric"] == "cosine" else "best", core_dist_n_jobs=1,
         approx_min_span_tree=False, cluster_selection_method=params["cluster_selection_method"],
         allow_single_cluster=params["allow_single_cluster"],
-    ).fit(projected)
-    return projected, model
+    ).fit(matrix)
+    return model
+
+
+def _fit_clusters(matrix, params):
+    """Legacy combined fit, retained for old experiments and integrations."""
+    projected = _fit_umap(matrix, params)
+    return projected, _fit_hdbscan(projected, params)
+
+
+def _projection_distances(matrix, query, metric):
+    """Distances in raw UMAP coordinates; cosine alone divides by the norms.
+
+    A zero coordinate has cosine similarity zero, including zero vs zero.
+    UMAP coordinates are never recentered or normalized for L1/L2 distances.
+    """
+    if metric != "cosine":
+        distances = _distances(matrix, query, metric)
+    else:
+        def unit(row):
+            scale = np.max(np.abs(row))
+            return row if scale == 0 else (row / scale) / np.linalg.norm(row / scale)
+        rows = np.asarray([unit(row) for row in matrix])
+        distances = 1 - np.clip(rows @ unit(query), -1, 1)
+    if not np.all(np.isfinite(distances)):
+        raise RuntimeError("A distância no espaço UMAP não é finita.")
+    return distances
 
 
 def _dendrogram(model, point_labels):
@@ -252,17 +300,12 @@ def _linkage_svg(linkage, labels):
 
 def search_semantic(vectors, query_embedding, categories=None, top_k=6, options=None,
                     minimum_similarity=None, maximum_distance=None):
-    """Return semantic topics, pure source-text topics, and an auditable cluster.
+    """Fit independent reduction/clustering stages including the query.
 
-    Each vector is {topic_id, category, embedding, embedding_id?, title?, text?,
-    document_id?}. Portuguese field aliases topico_id/categoria/vetor are accepted.
-    Select topics by distinct categories in the query cluster (descending), use
-    minimum original-space distance to break ties, then order the selected set
-    by that distance. Multiple segments of one category count only once.
-
-    A noise query or undersized corpus returns no semantic topics and explicitly
-    reports its status, while the independent conteudo_fonte baseline survives.
-    Parameters and labels describe this query-inclusive fit, not a global index.
+    Only clustering uses category coverage in the query cluster. UMAP alone
+    ranks by minimum projected distance. Similarity limits always refer to the
+    original cosine; maximum distance refers to the ranking space. The source
+    baseline has its own original-space distances and thresholds throughout.
     """
     top_k = _integer(top_k, "top_k", 1, 100)
     params = _parameters(options)
@@ -277,17 +320,26 @@ def search_semantic(vectors, query_embedding, categories=None, top_k=6, options=
     categories = list(dict.fromkeys(categories))
     selected = [index for index, row in enumerate(records) if row["category"] in categories]
     source_rows = [index for index, row in enumerate(records) if row["category"] == "conteudo_fonte"]
+    use_umap, use_hdbscan = params["use_umap"], params["use_hdbscan"]
+    distance_space = "umap_projection" if use_umap and not use_hdbscan else "original_l2_normalized"
+    cluster_space = ("umap_projection" if use_umap else "original_l2_normalized") if use_hdbscan else None
     baseline, baseline_eligible = _rank(records, matrix, query, params["metric"], source_rows, top_k,
                                         minimum_similarity=minimum_similarity, maximum_distance=maximum_distance)
     result = {
         "status": "empty" if not selected else "insufficient_data",
         "semantic_results": [], "baseline_results": baseline,
-        "parameters": {**params, "categories": categories, "top_k": top_k, "minimum_similarity": minimum_similarity, "maximum_distance": maximum_distance,
-                       "distance_space": "original_l2_normalized",
+        "parameters": {**params, "categories": categories, "top_k": top_k,
+                       "minimum_similarity": minimum_similarity, "maximum_distance": maximum_distance,
+                       "distance_space": distance_space, "cluster_space": cluster_space,
+                       "cosine_similarity_space": "original_l2_normalized",
+                       "minimum_similarity_space": "original_l2_normalized",
+                       "maximum_distance_space": distance_space,
+                       "baseline_distance_space": "original_l2_normalized",
                        "topic_distance": "minimum_member_distance",
-                       "selection": "distinct_categories_then_distance",
-                       "baseline_category": "conteudo_fonte", "query_in_fit": True},
-        "cluster": {"query_label": None, "query_probability": None, "counts": [], "points": []},
+                       "selection": "distinct_categories_then_distance" if use_hdbscan else "minimum_selected_vector_distance",
+                       "baseline_category": "conteudo_fonte", "query_in_fit": use_umap or use_hdbscan},
+        "cluster": {"query_label": None, "query_probability": None, "counts": [], "points": [], "space": cluster_space},
+        "projection": None,
         "coverage": {"semantic_eligible_topics": 0, "baseline_eligible_topics": baseline_eligible,
                      "selected_vectors": len(selected), "baseline_vectors": len(source_rows)},
         "warnings": [], "dendrogram": None,
@@ -297,44 +349,73 @@ def search_semantic(vectors, query_embedding, categories=None, top_k=6, options=
     if not selected:
         result["warnings"].append("Não há vetores das categorias selecionadas.")
         return result
-    sample_count = len(selected) + 1  # query is the last fitted observation
-    # At least three document units are needed for UMAP's neighbor graph. Do
-    # not reduce HDBSCAN's explicit density settings just to produce a cluster.
-    if sample_count < 4 or sample_count < params["min_cluster_size"] or sample_count <= params["min_samples"]:
-        result["warnings"].append("Base insuficiente para UMAP/HDBSCAN com os parâmetros escolhidos; consulte o baseline ou ajuste os parâmetros.")
+    sample_count = len(selected) + 1
+    if (use_umap and sample_count < 4) or (use_hdbscan and
+            (sample_count < params["min_cluster_size"] or sample_count <= params["min_samples"])):
+        stages = "UMAP/HDBSCAN" if use_umap and use_hdbscan else "UMAP" if use_umap else "HDBSCAN"
+        result["warnings"].append(f"Base insuficiente para {stages} com os parâmetros escolhidos; consulte o baseline ou ajuste os parâmetros.")
         return result
     effective = dict(params)
-    effective["n_neighbors"] = min(params["n_neighbors"], sample_count - 1)
-    effective["n_components"] = min(params["n_components"], sample_count - 2)
-    result["parameters"].update({"effective_n_neighbors": effective["n_neighbors"],
-                                 "effective_n_components": effective["n_components"]})
+    if use_umap:
+        effective["n_neighbors"] = min(params["n_neighbors"], sample_count - 1)
+        effective["n_components"] = min(params["n_components"], sample_count - 2)
+        result["parameters"].update({"effective_n_neighbors": effective["n_neighbors"],
+                                     "effective_n_components": effective["n_components"]})
     fit_matrix = np.vstack([matrix[selected], query[None, :]])
-    projected, model = _fit_clusters(fit_matrix, effective)
-    labels = np.asarray(model.labels_, dtype=int)
-    probabilities = np.asarray(model.probabilities_, dtype=float)
-    if labels.shape != (sample_count,) or probabilities.shape != (sample_count,) or not np.all(np.isfinite(probabilities)):
-        raise RuntimeError("HDBSCAN produziu rótulos ou probabilidades inválidos.")
-    query_label = int(labels[-1])
-    points = [{**records[index], "cluster": int(labels[local]),
-               "probability": float(probabilities[local]), "coordinates": projected[local].tolist(),
-               "is_query": False} for local, index in enumerate(selected)]
-    points.append({"embedding_id": "__query__", "topic_id": None, "category": "consulta",
-                   "cluster": query_label, "probability": float(probabilities[-1]),
-                   "coordinates": projected[-1].tolist(), "is_query": True})
-    result["cluster"] = {
-        "query_label": query_label, "query_probability": float(probabilities[-1]), "points": points,
-        "counts": [{"label": int(label), "count": int(np.sum(labels == label)), "is_noise": bool(label == -1)}
-                   for label in sorted(set(labels.tolist()))],
-    }
-    if params["dendrogram"]:
-        result["dendrogram"] = _dendrogram(model, [row["embedding_id"] for row in points])
-    if query_label == -1:
-        result["status"] = "query_noise"
-        result["warnings"].append("HDBSCAN classificou a consulta como ruído; nenhum agrupamento semântico foi atribuído.")
-        return result
-    members = [index for local, index in enumerate(selected) if labels[local] == query_label]
-    ranked, eligible = _rank(records, matrix, query, params["metric"], members, top_k, by_coverage=True,
-                             minimum_similarity=minimum_similarity, maximum_distance=maximum_distance)
+    projected, model = None, None
+    if use_umap and use_hdbscan:
+        projected, model = _fit_clusters(fit_matrix, effective)
+    elif use_umap:
+        projected = _fit_umap(fit_matrix, effective)
+    elif use_hdbscan:
+        model = _fit_hdbscan(fit_matrix, effective)
+    projected_distances = None
+    if projected is not None:
+        projected = np.asarray(projected, dtype=np.float64)
+        if projected.shape != (sample_count, effective["n_components"]) or not np.all(np.isfinite(projected)):
+            raise RuntimeError("UMAP produziu uma projeção inválida.")
+        projected_distances = np.zeros(len(records), dtype=np.float64)
+        projected_distances[selected] = _projection_distances(projected[:-1], projected[-1], params["metric"])
+        projection_points = [{**records[index], "coordinates": projected[local].tolist(), "is_query": False}
+                             for local, index in enumerate(selected)]
+        projection_points.append({"embedding_id": "__query__", "topic_id": None, "category": "consulta",
+                                  "coordinates": projected[-1].tolist(), "is_query": True})
+        result["projection"] = {"space": "umap_projection", "dimensions": effective["n_components"],
+                                "query_embedding_id": "__query__", "points": projection_points,
+                                "normalization": "none", "cosine_zero_policy": "zero_similarity"}
+    members = selected
+    if model is not None:
+        labels = np.asarray(model.labels_, dtype=int)
+        probabilities = np.asarray(model.probabilities_, dtype=float)
+        if labels.shape != (sample_count,) or probabilities.shape != (sample_count,) or not np.all(np.isfinite(probabilities)):
+            raise RuntimeError("HDBSCAN produziu rótulos ou probabilidades inválidos.")
+        query_label = int(labels[-1])
+        coordinates = projected if projected is not None else fit_matrix
+        points = [{**records[index], "cluster": int(labels[local]),
+                   "probability": float(probabilities[local]),
+                   **({"coordinates": coordinates[local].tolist()} if projected is not None else {}),
+                   "is_query": False} for local, index in enumerate(selected)]
+        points.append({"embedding_id": "__query__", "topic_id": None, "category": "consulta",
+                       "cluster": query_label, "probability": float(probabilities[-1]),
+                       **({"coordinates": coordinates[-1].tolist()} if projected is not None else {}), "is_query": True})
+        result["cluster"] = {"space": cluster_space, "dimensions": coordinates.shape[1],
+            "coordinates_included": projected is not None,
+            "query_label": query_label, "query_probability": float(probabilities[-1]), "points": points,
+            "counts": [{"label": int(label), "count": int(np.sum(labels == label)), "is_noise": bool(label == -1)}
+                       for label in sorted(set(labels.tolist()))]}
+        if result["projection"]:
+            result["projection"]["points"] = points
+        if params["dendrogram"]:
+            result["dendrogram"] = _dendrogram(model, [row["embedding_id"] for row in points])
+        if query_label == -1:
+            result["status"] = "query_noise"
+            result["warnings"].append("HDBSCAN classificou a consulta como ruído; nenhum agrupamento semântico foi atribuído.")
+            return result
+        members = [index for local, index in enumerate(selected) if labels[local] == query_label]
+    ranked, eligible = _rank(records, matrix, query, params["metric"], members, top_k, by_coverage=use_hdbscan,
+                             minimum_similarity=minimum_similarity, maximum_distance=maximum_distance,
+                             ranking_distances=projected_distances if distance_space == "umap_projection" else None,
+                             projected_distances=projected_distances, distance_space=distance_space)
     result["semantic_results"] = ranked
     result["coverage"]["semantic_eligible_topics"] = eligible
     result["status"] = "ok"

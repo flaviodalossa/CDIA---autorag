@@ -500,6 +500,12 @@ class SearchRequest(BaseModel):
     min_samples: int = Field(default=2, ge=1, le=1000)
     random_state: int = Field(default=42, ge=0, le=2147483647)
     dendrogram: bool = False
+    umap_metric: str = Field(default="cosine", pattern="^(cosine|euclidean|manhattan)$")
+    cluster_metric: str = Field(default="euclidean", pattern="^(cosine|euclidean|manhattan)$")
+    cluster_selection_method: str = Field(default="eom", pattern="^(eom|leaf)$")
+    allow_single_cluster: bool = False
+    minimum_similarity: float | None = Field(default=None, ge=-1, le=1)
+    maximum_distance: float | None = Field(default=None, ge=0)
     view: str = Field(default="topicos", pattern="^(topicos|vetores)$")
     minimum: float | None = Field(default=None, ge=-1, le=1)
     maximum: float | None = Field(default=None, ge=-1, le=1)
@@ -510,7 +516,7 @@ class SearchRequest(BaseModel):
 
 @app.post("/api/search")
 def search(body: SearchRequest):
-    if body.mode not in {"vector", "semantic", "laboratory"} or any(c not in CATEGORIES for c in body.categories):
+    if body.mode not in {"vector", "umap", "hdbscan", "semantic", "laboratory"} or any(c not in CATEGORIES for c in body.categories):
         raise ValueError("Modo ou categoria desconhecida.")
     if body.profile_id is None:
         explicit = body.model_fields_set - {"query"}

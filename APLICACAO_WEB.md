@@ -9,10 +9,12 @@ Sem experimentos selecionados no laboratório, a consulta usa distância cosseno
 No laboratório, cada experimento tem nome, modelos de embeddings, categorias e parâmetros próprios. Os métodos são:
 
 - Similaridade vetorial: ordena cada tópico pela menor distância dos seus vetores selecionados.
+- Somente UMAP: inclui a consulta na redução e ordena os tópicos pela menor distância na projeção, sem agrupamento ou seleção por cobertura de categorias. Todas as dimensões configuradas participam do ranking; o gráfico mostra as duas primeiras. As coordenadas projetadas não são normalizadas.
+- Somente HDBSCAN: agrupa diretamente os embeddings originais normalizados, sem redução. Seleciona tópicos pela cobertura de categorias no grupo da consulta e ordena pela distância original.
 - UMAP + HDBSCAN: inclui a consulta no agrupamento, seleciona tópicos pela cobertura de categorias distintas no grupo da consulta e ordena o conjunto pela distância no espaço original. Ruído e dados insuficientes são informados; a recuperação do conteúdo original continua disponível.
 - Laboratório de vetores: usa a média das distâncias dos vetores selecionados de cada tópico. Permite cobertura parcial e mínimos de similaridade por categoria.
 
-Distâncias disponíveis: cosseno, euclidiana e Manhattan. Top K, similaridade cosseno mínima, distância máxima, profundidade da fusão, semente e parâmetros UMAP/HDBSCAN são ajustáveis. O dendrograma é opcional. Os filtros atuam em cada modelo antes de Top K e fusão.
+Distâncias disponíveis: cosseno, euclidiana e Manhattan. Top K, similaridade cosseno mínima, distância máxima, profundidade da fusão, semente e parâmetros UMAP/HDBSCAN são ajustáveis. O dendrograma é opcional nos modos com HDBSCAN, inclusive sem UMAP. Os filtros atuam em cada modelo antes de Top K e fusão. A similaridade mínima é sempre o cosseno dos embeddings originais. A distância máxima usa o espaço de recuperação do método; o baseline aplica seu próprio limite no espaço original. Distâncias originais e projetadas são identificadas separadamente. Configurações antigas com mode=semantic preservam UMAP + HDBSCAN. Os novos modos são umap e hdbscan.
 
 Escolha categorias comuns aos modelos ou personalize categorias por modelo, como resumo com Gemma e perguntas com MiniLM. Modelos com dimensões distintas são consultados separadamente; os tópicos são combinados por Reciprocal Rank Fusion (RRF, k=60). A pontuação RRF não é uma distância vetorial. Os escores e evidências de cada modelo acompanham o resultado.
 
@@ -28,7 +30,7 @@ Escolha categorias comuns aos modelos ou personalize categorias por modelo, como
 
 Os retornos podem ser baixados em JSON, CSV ou JSONL, e a configuração pode ser exportada separadamente. Os registros preservam a proveniência dos perfis, revisões de índices, parâmetros e vetor da entrada.
 
-Baixar vetores e métricas (ZIP) fornece os vetores numéricos da entrada e dos correspondentes recuperados, organizados por perfil/dimensão em NPZ, com manifesto JSON e métricas CSV. As associações identificam experimento, tópico, categoria, vetor, posição e pontuações de recuperação/fusão. Os arquivos NPZ não exigem pickle. São incluídos os vetores dos retornos e baselines registrados, sem regenerar embeddings.
+Baixar vetores e métricas (ZIP) fornece os vetores numéricos da entrada e dos correspondentes recuperados, organizados por perfil/dimensão em NPZ, com manifesto JSON e métricas CSV. As associações identificam experimento, tópico, categoria, vetor, posição e pontuações de recuperação/fusão. Nos experimentos com UMAP, o ZIP também inclui projecoes/<experimento>/<perfil>.npz com a consulta e as coordenadas ajustadas de todos os pontos da projeção, sem refazer a redução. O manifesto associa cada linha ao vetor/tópico e o CSV distingue distance_space, original_distance e projected_distance. Projeções de experimentos diferentes ficam separadas, mesmo usando o mesmo perfil. Todas as coordenadas têm checksums. Os arquivos NPZ não exigem pickle. São incluídos os vetores dos retornos e baselines registrados, sem regenerar embeddings.
 
 ## Análise automática opcional
 

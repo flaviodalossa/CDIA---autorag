@@ -46,3 +46,21 @@ test('mantém categorias específicas de cada modelo e rejeita mapas incompletos
   assert.equal(result.categories.join(','),'resumo,perguntas');
   for (const mapping of [{pf_gemma:['resumo']},{pf_gemma:[],pf_minilm:['perguntas']},{pf_gemma:['resumo'],pf_minilm:['perguntas'],pf_extra:['resumo']}]) assert.throws(() => lab.normalizeBundle({experiments:[{...cfg,model_categories:mapping}]}));
 });
+
+
+test('UMAP e HDBSCAN funcionam como etapas independentes e preservam importações legadas', () => {
+  for (const mode of ['vector','umap','hdbscan','semantic','laboratory']) {
+    const result = lab.normalizeBundle({experiments:[{...config(),mode}]}).experiments[0];
+    assert.equal(result.mode,mode);
+  }
+  assert.equal(lab.stages('umap').umap,true);
+  assert.equal(lab.stages('umap').hdbscan,false);
+  assert.equal(lab.stages('hdbscan').umap,false);
+  assert.equal(lab.stages('hdbscan').hdbscan,true);
+  assert.equal(lab.stages('semantic').umap,true);
+  assert.equal(lab.stages('semantic').hdbscan,true);
+  assert.equal(lab.stages('vector').umap,false);
+  assert.equal(lab.stages('vector').hdbscan,false);
+  assert.throws(() => lab.normalizeBundle({experiments:[{...config(),mode:'umap',dendrogram:true}]}),/HDBSCAN/);
+  assert.equal(lab.normalizeBundle({experiments:[{...config(),mode:'hdbscan',dendrogram:true}]}).experiments[0].dendrogram,true);
+});

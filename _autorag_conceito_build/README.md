@@ -1,5 +1,7 @@
 # AutoRAG v0.2
 
+UMAP e HDBSCAN são etapas independentes no laboratório: vetorial direto, somente UMAP (distância na projeção), somente HDBSCAN (agrupamento original) e UMAP + HDBSCAN (agrupamento na projeção, distância original). O laboratório de médias também continua disponível. Parâmetros, espaços das métricas e coordenadas UMAP acompanham a reprodução e o download. O dendrograma está disponível nos dois modos com HDBSCAN.
+
 A interface web compara até três experimentos com modelos/categorias combinados, métricas e limites ajustáveis. Configurações e resultados podem ser salvos, exportados e reproduzidos. A análise automática de pertinência e utilidade é opcional, com OpenAI Luna 6, Ollama ou API compatível. Sem experimentos selecionados no laboratório, a consulta usa similaridade vetorial do conteúdo original.
 
 Consulte o [manual da versão web](../APLICACAO_WEB.md). Os fluxos desktop e CLI descritos abaixo continuam disponíveis.

@@ -86,10 +86,10 @@ def run_search(project, request, provider=None):
     from .semantic import search_semantic
     profile_id, query = request["profile_id"], request["query"]
     mode = request.get("mode", "vector")
-    categories = request.get("categories") or list(SEMANTIC_CATEGORIES if mode == "semantic" else DEFAULT_CATEGORIES)
+    categories = request.get("categories") or list(SEMANTIC_CATEGORIES if mode in {"semantic", "umap", "hdbscan"} else DEFAULT_CATEGORIES)
     if any(c not in CATEGORIES for c in categories):
         raise ValueError("Categoria desconhecida.")
-    if mode not in {"vector", "semantic", "laboratory"}:
+    if mode not in {"vector", "umap", "hdbscan", "semantic", "laboratory"}:
         raise ValueError("Modo de recuperação desconhecido.")
     profile = require_profile(project, profile_id)
     top_k = request.get("top_k", 6)
@@ -101,7 +101,8 @@ def run_search(project, request, provider=None):
             raise ValueError("Gere os embeddings das categorias escolhidas antes de consultar.")
         entry, generation, query_vector = save_input(project, query, profile, provider)
     options = {k: request[k] for k in ("metric", "n_neighbors", "n_components", "min_dist", "min_cluster_size",
-               "min_samples", "random_state", "dendrogram") if k in request}
+               "min_samples", "random_state", "dendrogram", "umap_metric", "cluster_metric",
+               "cluster_selection_method", "allow_single_cluster") if k in request}
     if mode == "laboratory":
         # Preserve the existing filters, ranking, saved scores and index provenance.
         experiment = laboratory_search(project, profile_id, categories, query,
@@ -136,7 +137,7 @@ def run_search(project, request, provider=None):
     elif mode == "vector":
         from .semantic import vector_search
         metric = request.get("metric", "cosine")
-        limits = {"minimum_similarity": request.get("minimum_similarity", request.get("minimum")),
+        limits = {"minimum_similarity": request.get("minimum_similarity") if request.get("minimum_similarity") is not None else request.get("minimum"),
                   "maximum_distance": request.get("maximum_distance")}
         selected = vector_search(vectors, query_vector, categories, top_k, metric, **limits)
         baseline = vector_search(vectors, query_vector, ["conteudo_fonte"], top_k, metric, **limits)
@@ -146,10 +147,18 @@ def run_search(project, request, provider=None):
                   "parameters": {**request, "distance_space": "original_l2_normalized",
                                  "selection": "minimum_selected_vector_distance"}}
     else:
-        output = search_semantic(vectors, query_vector, categories=categories, top_k=top_k, options=options)
+        options.update(use_umap=mode in {"umap", "semantic"}, use_hdbscan=mode in {"hdbscan", "semantic"})
+        output = search_semantic(vectors, query_vector, categories=categories, top_k=top_k, options=options,
+                                 minimum_similarity=request.get("minimum_similarity") if request.get("minimum_similarity") is not None else request.get("minimum"),
+                                 maximum_distance=request.get("maximum_distance"))
         output["semantic_results"] = present_results(output["semantic_results"], mapping)
         output["baseline_results"] = present_results(output["baseline_results"], mapping)
-        output["projection"] = output.get("cluster", {}).get("points", [])
+        # The single-profile API keeps its historical list-shaped projection.
+        if isinstance(output.get("projection"), dict):
+            output["projection_metadata"] = {key: value for key, value in output["projection"].items() if key != "points"}
+            output["projection"] = output["projection"]["points"]
+        else:
+            output["projection"] = []
     if missing:
         output.setdefault("warnings", []).append("Categorias ainda não geradas: " + ", ".join(LABELS[c] for c in missing))
     if excluded:

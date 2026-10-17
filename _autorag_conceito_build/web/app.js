@@ -161,7 +161,9 @@
     const count = row.category_count ?? row.quantidade_categorias ?? categories.length;
     const text = row.text || row.conteudo_fonte || row.resumo || row.trecho || '';
     const title = row.title || row.titulo || 'Tópico ' + (row.topic_id || row.topico_id || index + 1);
-    return '<article class="result-card"><div class="result-topline"><span class="rank">' + String(index + 1).padStart(2, '0') + ' / TÓPICO</span><span class="distance">Distância <b>' + number(row.distance ?? row.distancia) + '</b></span></div><h4>' + esc(title) + '</h4><p class="result-text result-snippet">' + esc(text) + '</p>' + (text.length > 250 ? '<details><summary>Ler conteúdo recuperado</summary><p class="result-text">' + esc(text) + '</p></details>' : '') + (semantic || categories.length ? '<div class="category-chips">' + (semantic ? '<span class="category-chip match-count">' + esc(count) + (Number(count) === 1 ? ' categoria no grupo' : ' categorias no grupo') + '</span>' : '') + categories.map(category => '<span class="category-chip">' + esc(label(typeof category === 'string' ? category : category.id || category.categoria)) + '</span>').join('') + '</div>' : '') + sourceMarkup(row) + '</article>';
+    const space = row.distance_space === 'umap_projection' ? 'Projeção UMAP' : row.distance_space === 'per_model' ? 'Distâncias por modelo' : 'Embeddings originais normalizados';
+    const distanceNote = '<p class="field-help">' + esc(space) + (row.distance_space === 'umap_projection' ? ' · distância original: ' + number(row.original_distance) + ' · cosseno original: ' + number(row.original_cosine_similarity ?? row.cosine_similarity) : '') + '</p>';
+    return '<article class="result-card"><div class="result-topline"><span class="rank">' + String(index + 1).padStart(2, '0') + ' / TÓPICO</span><span class="distance">Distância <b>' + number(row.distance ?? row.distancia) + '</b></span></div>' + distanceNote + '<h4>' + esc(title) + '</h4><p class="result-text result-snippet">' + esc(text) + '</p>' + (text.length > 250 ? '<details><summary>Ler conteúdo recuperado</summary><p class="result-text">' + esc(text) + '</p></details>' : '') + (semantic || categories.length ? '<div class="category-chips">' + (semantic ? '<span class="category-chip match-count">' + esc(count) + (Number(count) === 1 ? ' categoria no grupo' : ' categorias no grupo') + '</span>' : '') + categories.map(category => '<span class="category-chip">' + esc(label(typeof category === 'string' ? category : category.id || category.categoria)) + '</span>').join('') + '</div>' : '') + sourceMarkup(row) + '</article>';
   }
   function renderResults(data, query) {
     if (state.lab?.isComparison(data)) { state.lab.render(data,query,'consultation'); return; }
@@ -175,17 +177,19 @@
     const noise = data.status === 'query_noise' || data.cluster?.noise === true || Number(data.cluster?.query_label) === -1;
     const laboratory = (data.mode || data.parameters?.mode) === 'laboratory';
     const vector = (data.mode || data.parameters?.mode) === 'vector';
+    const umapOnly = (data.mode || data.parameters?.mode) === 'umap';
     document.querySelector('.result-column.direct').hidden = vector;
     document.querySelector('.result-columns').classList.toggle('single-result',vector);
-    $('semantic-title').textContent = vector ? 'Similaridade vetorial' : laboratory ? 'Laboratório de vetores' : 'Agrupamento semântico';
-    $('semantic-subtitle').textContent = vector ? 'Conteúdo original da base' : laboratory ? 'Categorias e métrica selecionadas' : 'Convergência entre categorias de vetores';
-    $('semantic-results').innerHTML = semantic.length ? semantic.map((row, index) => resultCard(row, index, !laboratory && !vector)).join('') : '<div class="empty-result"><strong>' + (noise ? 'A consulta ficou fora dos grupos.' : 'Nenhum tópico neste agrupamento.') + '</strong>' + (noise ? 'O HDBSCAN classificou a consulta como ruído. Consulte a similaridade direta ao lado ou avalie outra combinação no laboratório.' : data.status === 'insufficient_data' ? 'A base tem poucos vetores para esta configuração. Gere embeddings ou ajuste os parâmetros no laboratório.' : 'Verifique o perfil, a disponibilidade das categorias e a documentação da base.') + '</div>';
+    $('semantic-title').textContent = vector ? 'Similaridade vetorial' : laboratory ? 'Laboratório de vetores' : umapOnly ? 'Projeção UMAP' : 'Agrupamento semântico';
+    $('semantic-subtitle').textContent = vector ? 'Conteúdo original da base' : laboratory ? 'Categorias e métrica selecionadas' : umapOnly ? 'Distância nas coordenadas projetadas, sem agrupamento' : 'Convergência entre categorias de vetores';
+    $('semantic-results').innerHTML = semantic.length ? semantic.map((row, index) => resultCard(row, index, !laboratory && !vector && !umapOnly)).join('') : '<div class="empty-result"><strong>' + (noise ? 'A consulta ficou fora dos grupos.' : 'Nenhum tópico neste agrupamento.') + '</strong>' + (noise ? 'O HDBSCAN classificou a consulta como ruído. Consulte a similaridade direta ao lado ou avalie outra combinação no laboratório.' : data.status === 'insufficient_data' ? 'A base tem poucos vetores para esta configuração. Gere embeddings ou ajuste os parâmetros no laboratório.' : 'Verifique o perfil, a disponibilidade das categorias e a documentação da base.') + '</div>';
     $('baseline-results').innerHTML = baseline.length ? baseline.map((row, index) => resultCard(row, index, false)).join('') : '<div class="empty-result"><strong>Nenhum conteúdo disponível.</strong>' + (data.legacy ? 'A recuperação direta não foi registrada nesta execução legada.' : 'Gere vetores da categoria Conteúdo-fonte para habilitar a comparação por distância direta.') + '</div>';
     warnings(data.warnings, 'search-warnings');
-    renderProjection(data.projection || data.cluster?.points, data.cluster?.query_label);
+    renderProjection(data.projection || (data.cluster?.space !== "original_l2_normalized" ? data.cluster?.points : []), data.cluster?.query_label);
     renderDendrogram(data.dendrogram);
   }
   function renderProjection(points, queryLabel, chart = $('projection-chart'), panel = $('projection-panel')) {
+    points = Array.isArray(points) ? points : points?.points || [];
     points = list(points).map(point => ({...point,x:point.x ?? point.coordinates?.[0],y:point.y ?? point.coordinates?.[1]})).filter(point => Number.isFinite(Number(point.x)) && Number.isFinite(Number(point.y)));
     panel.hidden = !points.length; chart.replaceChildren();
     if (!points.length) return;
@@ -199,10 +203,10 @@
     points.sort((a, b) => Number(Boolean(a.is_query)) - Number(Boolean(b.is_query))).forEach(point => {
       const isQuery = point.is_query || point.category === 'query' || point.category === 'consulta';
       const cluster = point.cluster ?? point.label; const noise = Number(cluster) === -1;
-      const inGroup = !noise && String(cluster) === String(queryLabel);
+      const inGroup = cluster != null && queryLabel != null && !noise && String(cluster) === String(queryLabel);
       const circle = document.createElementNS(ns, 'circle');
       Object.entries({cx:x(point.x), cy:y(point.y), r:isQuery ? 7 : inGroup ? 4.5 : 3, fill:isQuery ? '#153f4a' : noise ? '#d9dcd5' : inGroup ? '#5a9b76' : '#bacbc7', stroke:isQuery ? '#fff' : 'none', 'stroke-width':2, tabindex:0}).forEach(([key,value]) => circle.setAttribute(key, value));
-      const title = document.createElementNS(ns, 'title'); title.textContent = isQuery ? 'Sua consulta · grupo ' + cluster : (point.title || point.topic_id || 'Vetor') + ' · ' + label(point.category || '') + ' · grupo ' + cluster; circle.append(title); svg.append(circle);
+      const title = document.createElementNS(ns, 'title'); title.textContent = (isQuery ? 'Sua consulta' : (point.title || point.topic_id || 'Vetor') + ' · ' + label(point.category || '')) + (cluster == null ? ' · sem agrupamento' : ' · grupo ' + cluster); circle.append(title); svg.append(circle);
     });
     chart.append(svg);
   }

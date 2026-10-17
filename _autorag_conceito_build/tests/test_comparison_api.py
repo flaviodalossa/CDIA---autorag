@@ -86,6 +86,36 @@ class ComparisonAPITests(unittest.TestCase):
         self.assertEqual(result["analysis"]["status"], "disabled")
         self.assertEqual(result["analysis_config"]["model"], "gpt-6-luna")
 
+    def test_independent_modes_save_run_export_and_reuse_through_http(self):
+        from test_independent_retrieval import projection
+        from test_semantic import fake_model
+        configs = [self.config("Somente UMAP", mode="umap", metric="euclidean", n_components=2),
+                   self.config("Somente HDBSCAN", mode="hdbscan", min_cluster_size=2, dendrogram=True)]
+        with patch("autorag.semantic._fit_umap", side_effect=projection), \
+                patch("autorag.semantic._fit_hdbscan", side_effect=lambda matrix, params: fake_model([0]*len(matrix))):
+            saved = self.client.post("/api/experiment-configs", json={"name": "Etapas independentes", "experiments": configs})
+            self.assertEqual(saved.status_code, 200, saved.text)
+            result = self.wait_job(self.client.post("/api/comparisons", json={"query": "Consulta normativa", "preset_id": saved.json()["id"]}))
+            self.assertEqual([e["config"]["mode"] for e in result["experiments"]], ["umap", "hdbscan"])
+            self.assertTrue(all(e["status"] == "ok" for e in result["experiments"]))
+            reproduced = self.wait_job(self.client.post("/api/comparisons/"+result["comparison_id"]+"/reproduce", json={}))
+            self.assertEqual(result["experiments"], reproduced["experiments"])
+            for config in configs:
+                legacy = self.wait_job(self.client.post("/api/search", json={
+                    key: value for key, value in {**config, "profile_id": "pf_test", "query": "Consulta normativa"}.items()
+                    if key not in {"name", "profile_ids"}}))
+                self.assertEqual(legacy["status"], "ok")
+                self.assertEqual(legacy["mode"], config["mode"])
+        filtered = self.wait_job(self.client.post("/api/search", json={
+            "query": "Consulta normativa", "profile_id": "pf_test", "mode": "vector", "minimum": 1.0}))
+        self.assertEqual(filtered["semantic_results"], [])
+        response = self.client.get("/api/comparisons/"+result["comparison_id"]+"/export?format=vectors")
+        self.assertEqual(response.status_code, 200)
+        archive = zipfile.ZipFile(io.BytesIO(response.content))
+        manifest = json.loads(archive.read("manifesto.json"))
+        self.assertEqual(len(manifest["projections"]), 1)
+        self.assertTrue(any(row["distance_space"] == "umap_projection" for row in manifest["associations"]))
+
     def test_no_config_uses_pure_original_content_vectors(self):
         result = self.wait_job(self.client.post("/api/search", json={"query": "Consulta normativa"}))
         self.assertEqual(result["experiments"][0]["config"]["mode"], "vector")

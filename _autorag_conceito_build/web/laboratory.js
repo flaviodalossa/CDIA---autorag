@@ -1,6 +1,7 @@
 'use strict';
 (() => {
-  const METHODS = {vector: 'Similaridade vetorial', semantic: 'UMAP + HDBSCAN', laboratory: 'Laboratório de vetores'};
+  const METHODS = {vector: 'Similaridade vetorial', umap: 'Somente UMAP', hdbscan: 'Somente HDBSCAN', semantic: 'UMAP + HDBSCAN', laboratory: 'Laboratório de vetores'};
+  const stages = mode => ({umap: ['umap','semantic'].includes(mode), hdbscan: ['hdbscan','semantic'].includes(mode)});
   const FIELDS = ['id','name','mode','profile_ids','model_categories','categories','metric','top_k','minimum_similarity','maximum_distance','fusion_depth','n_neighbors','n_components','min_dist','min_cluster_size','min_samples','random_state','umap_metric','cluster_metric','cluster_selection_method','allow_single_cluster','dendrogram','partial','individual_limits','individual_rule'];
   const defaults = () => ({name: 'Experimento 1', mode: 'vector', profile_ids: [], categories: ['conteudo_fonte'], metric: 'cosine', top_k: 6, n_neighbors: 15, n_components: 5, min_dist: 0.0, min_cluster_size: 5, min_samples: 2, random_state: 42, dendrogram: false, fusion_depth: 50, umap_metric: 'cosine', cluster_metric: 'euclidean', cluster_selection_method: 'eom', allow_single_cluster: false, partial: false, individual_rule: 'todos'});
   const clone = value => JSON.parse(JSON.stringify(value));
@@ -16,6 +17,7 @@
       config.profile_ids ||= row.profile_id ? [row.profile_id] : [];
       if (!config.name || config.name.length > 160) throw new Error('Dê um nome de até 160 caracteres a cada experimento.');
       if (!Object.hasOwn(METHODS, config.mode)) throw new Error('Método de recuperação desconhecido.');
+      if (config.mode === 'umap' && config.dendrogram) throw new Error('O dendrograma exige HDBSCAN.');
       if (!Array.isArray(config.profile_ids) || !config.profile_ids.length || config.profile_ids.length > 12 || config.profile_ids.some(id => typeof id !== 'string' || !id || id.length > 100)) throw new Error('Selecione de um a doze perfis de embeddings por experimento.');
       if (new Set(config.profile_ids).size !== config.profile_ids.length) throw new Error('Um perfil não pode aparecer duas vezes no mesmo experimento.');
       if (!Array.isArray(config.categories) || !config.categories.length || config.categories.some(id => typeof id !== 'string' || !id || id.length > 100)) throw new Error('Selecione categorias de vetores para cada experimento.');
@@ -126,7 +128,7 @@
       renderProfiles(); updateMode();
     }
     function readEditor() {
-      const config = {name:$('experiment-name').value.trim(),mode:document.querySelector('input[name="mode"]:checked').value,profile_ids:selectedProfiles(),categories:Array.from(document.querySelectorAll('input[name="search-category"]:checked'),input => input.value),dendrogram:$('dendrogram').checked,allow_single_cluster:$('allow-single-cluster').checked,partial:$('partial-coverage').checked,individual_rule:$('individual-rule').value};
+      const config = {name:$('experiment-name').value.trim(),mode:document.querySelector('input[name="mode"]:checked').value,profile_ids:selectedProfiles(),categories:Array.from(document.querySelectorAll('input[name="search-category"]:checked'),input => input.value),dendrogram:stages(document.querySelector('input[name="mode"]:checked').value).hdbscan && $('dendrogram').checked,allow_single_cluster:stages(document.querySelector('input[name="mode"]:checked').value).hdbscan && $('allow-single-cluster').checked,partial:$('partial-coverage').checked,individual_rule:$('individual-rule').value};
       if ($('separate-model-categories').checked) {
         const choices = Array.from(document.querySelectorAll('input[name="experiment-model-category"]:checked'));
         config.model_categories = Object.fromEntries(config.profile_ids.map(id => [id,choices.filter(input => input.dataset.profile === id).map(input => input.value)]));
@@ -162,8 +164,13 @@
     }
     function updateMode() {
       const mode = document.querySelector('input[name="mode"]:checked')?.value;
-      const semantic = mode === 'semantic'; $('semantic-options').hidden = !semantic; document.querySelector('.advanced-lab').hidden = mode !== 'laboratory';
-      document.querySelectorAll('[data-semantic-parameter]').forEach(node => { node.disabled = !semantic; });
+      const selected = stages(mode);
+      $('semantic-options').hidden = !selected.umap && !selected.hdbscan;
+      $('umap-options').hidden = !selected.umap; $('hdbscan-options').hidden = !selected.hdbscan;
+      document.querySelector('.advanced-lab').hidden = mode !== 'laboratory';
+      document.querySelectorAll('[data-umap-parameter]').forEach(node => { node.disabled = !selected.umap; });
+      document.querySelectorAll('[data-hdbscan-parameter]').forEach(node => { node.disabled = !selected.hdbscan; });
+      $('distance-space-help').textContent = mode === 'umap' ? 'A distância máxima usa a projeção UMAP, sem normalização. A similaridade cosseno mínima usa os embeddings originais. O baseline sempre usa o espaço original.' : 'A recuperação e os limites usam os embeddings originais normalizados. Com HDBSCAN, a cobertura de categorias seleciona os tópicos dentro do grupo da consulta.';
     }
     async function refreshPresets() {
       const data = await request('/api/experiment-configs'); ui.presets = data.configs || [];
@@ -220,7 +227,7 @@
         const params = {...config}; delete params.name;
         const categoriesDescription = config.model_categories ? Object.entries(config.model_categories).map(([id,categories]) => profileName(id) + ': ' + categories.map(label).join(' + ')).join(' / ') : (config.categories || []).map(label).join(' · ');
         return '<section class="comparison-column"><div class="comparison-column-heading"><p class="eyebrow">EXPERIMENTO ' + (index + 1) + '</p><h3>' + esc(config.name || experiment.experiment_id) + '</h3><p>' + esc(METHODS[config.mode] || config.mode) + ' · ' + esc(({cosine:'cosseno',euclidean:'euclidiana',manhattan:'Manhattan'}[config.metric])) + ' · Top K ' + esc(config.top_k) + '</p><p class="field-help">' + esc((config.profile_ids || []).map(profileName).join(' + ')) + '</p><p class="field-help">' + esc(categoriesDescription) + '</p></div>' + (error ? '<p class="message error">' + esc(experiment.error || 'Este experimento não foi concluído.') + '</p>' : '') + (experiment.warnings || []).map(w => '<p class="message warning">' + esc(w) + '</p>').join('') + (experiment.analysis?.status === 'failed' ? '<p class="message warning">Análise automática não concluída: ' + esc(experiment.analysis.error || '') + '</p>' : '') + '<div class="result-list">' + (rows.length ? rows.map((row,i) => {
-          let card = resultCard(row,i,config.mode === 'semantic');
+          let card = resultCard(row,i,stages(config.mode).hdbscan);
           if (row.fusion_score != null || row.rrf_score != null) card = card.replace(/Distância <b>[^<]*<\/b>/, 'Fusão RRF <b>' + number(row.fusion_score ?? row.rrf_score) + '</b>');
           const evidence = row.model_evidence || row.evidence || row.evidences || row.spaces || [];
           return card + analysisMarkup(row.analysis) + (evidence.length ? '<details class="evidence-detail"><summary>Pontuações por modelo</summary><pre>' + esc(JSON.stringify(evidence,null,2)) + '</pre></details>' : '');
@@ -229,9 +236,10 @@
       records.forEach((experiment,index) => (experiment.spaces || []).forEach(space => {
         const host = node.querySelector('[data-comparison-visual="' + index + '"]');
         if (space.baseline_results?.length && ((experiment.config?.profile_ids?.length || 0) > 1 || experiment.status === 'error')) { const details = document.createElement('details'); details.className = 'baseline-detail'; const summary = document.createElement('summary'); summary.textContent = 'Conteúdo original · ' + profileName(space.profile_id); const body = document.createElement('div'); body.innerHTML = space.baseline_results.map((row,i) => resultCard(row,i,false)).join(''); details.append(summary,body); host.append(details); }
-        const points = space.projection || space.cluster?.points;
+        const points = Array.isArray(space.projection) ? space.projection : space.projection?.points || (space.cluster?.space !== 'original_l2_normalized' ? space.cluster?.points : []);
+        if (space.cluster?.space === 'original_l2_normalized') { const note = document.createElement('p'); note.className = 'field-help'; note.textContent = 'HDBSCAN nos embeddings originais · ' + profileName(space.profile_id) + ' · grupo da consulta: ' + (space.cluster.query_label ?? 'indisponível'); host.append(note); }
         if (points?.length) {
-          const details = document.createElement('details'); details.className = 'experiment-visual'; const summary = document.createElement('summary'); summary.textContent = 'Mapa semântico · ' + profileName(space.profile_id); const chart = document.createElement('div'); chart.className = 'chart-wrap'; details.append(summary,chart); host.append(details); renderProjection(points,space.cluster?.query_label,chart,details);
+          const details = document.createElement('details'); details.className = 'experiment-visual'; const summary = document.createElement('summary'); summary.textContent = 'Projeção UMAP · ' + profileName(space.profile_id); const chart = document.createElement('div'); chart.className = 'chart-wrap'; const note = document.createElement('p'); note.className = 'field-help'; note.textContent = 'Exibição das duas primeiras coordenadas da projeção. O ranking utiliza todas as dimensões configuradas.'; details.append(summary,note,chart); host.append(details); renderProjection(points,space.cluster?.query_label,chart,details);
         }
         if (space.dendrogram?.svg) {
           const details = document.createElement('details'); details.className = 'experiment-visual'; const summary = document.createElement('summary'); summary.textContent = 'Dendrograma · ' + profileName(space.profile_id); const chart = document.createElement('div'); chart.className = 'chart-wrap'; details.append(summary,chart); host.append(details); renderDendrogram(space.dendrogram,chart,details);
@@ -295,5 +303,5 @@
     setAnalysis(); renderProfiles(); if (ui.drafts.length) writeEditor(ui.drafts[0],0); describe(); refresh();
     return {saveEditor,describe,render,renderProfiles,refreshHistory,refresh,isComparison:data => Boolean(data?.comparison_id && Array.isArray(data.experiments)),hideConsultation:() => {$('consultation-comparisons').hidden = true;},resetEditor:() => {if(ui.editing >= 0){const config=defaults();config.name=ui.drafts[ui.editing].name;config.profile_ids=ui.drafts[ui.editing].profile_ids;writeEditor(config,ui.editing);}},navigate:page => {if(page === 'laboratorio'){refreshHistory();refresh();}},selectProfile:id => {document.querySelectorAll('input[name="experiment-profile"]').forEach(input => {input.checked = input.value === id;});}};
   }
-  globalThis.AutoRAGLaboratory = Object.freeze({normalizeBundle,analysisLabel,defaults,init});
+  globalThis.AutoRAGLaboratory = Object.freeze({normalizeBundle,analysisLabel,defaults,stages,init});
 })();

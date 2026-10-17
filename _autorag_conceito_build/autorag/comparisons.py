@@ -23,7 +23,7 @@ from .core import (CATEGORIES, Project, category_text, digest, file_hash, normal
 from .experiments import save_input
 from .service import require_profile
 from .semantic import (_parameters, _thresholds, search_semantic, vector_search,
-                       _distances, _embedding, _records)
+                       _distances, _embedding, _records, _projection_distances)
 
 SCHEMA_VERSION = "2.0"
 RRF_K = 60
@@ -72,7 +72,7 @@ def validate_config(project, config):
         raise ValueError("O nome do experimento deve conter de 1 a 160 caracteres.")
     result["name"] = name
     mode = result.setdefault("mode", "vector")
-    if not isinstance(mode, str) or mode not in {"vector", "semantic", "laboratory"}:
+    if not isinstance(mode, str) or mode not in {"vector", "umap", "hdbscan", "semantic", "laboratory"}:
         raise ValueError("Modo de recuperação desconhecido.")
     profiles = result.get("profile_ids")
     if not isinstance(profiles, list) or not 1 <= len(profiles) <= 12 or any(not isinstance(p, str) for p in profiles):
@@ -103,6 +103,10 @@ def validate_config(project, config):
     result["top_k"] = _integer(result.get("top_k", 6), "Top-k", 1, 100)
     result["fusion_depth"] = _integer(result.get("fusion_depth", max(50, result["top_k"])), "Profundidade de fusão", result["top_k"], 100)
     semantic = _parameters({key: result[key] for key in SEMANTIC_KEYS if key in result})
+    semantic.pop("use_umap", None)
+    semantic.pop("use_hdbscan", None)
+    if mode == "umap" and semantic["dendrogram"]:
+        raise ValueError("O dendrograma exige HDBSCAN; selecione HDBSCAN ou UMAP + HDBSCAN.")
     result.update(semantic)
     _thresholds(result.get("minimum_similarity"), result.get("maximum_distance"))
     for key in ("minimum_similarity", "maximum_distance"):
@@ -308,15 +312,19 @@ def _space(snapshot, config, mapping):
               "input_storage": "comparison_query_exact_float_bytes",
               "distance_space": "original_l2_normalized", "metric": metric,
               "warnings": [], "status": "ok", "cluster": {}, "projection": [], "dendrogram": None}
-    if mode == "semantic":
+    if mode in {"umap", "hdbscan", "semantic"}:
         try:
             semantic = search_semantic(vectors, query_vector, categories=config["categories"],
-                                       options={key: config[key] for key in SEMANTIC_KEYS}, **args)
+                                       options={**{key: config[key] for key in SEMANTIC_KEYS},
+                                                "use_umap": mode in {"umap", "semantic"},
+                                                "use_hdbscan": mode in {"hdbscan", "semantic"}}, **args)
             output.update({key: semantic[key] for key in ("status", "cluster", "warnings", "dendrogram", "parameters", "coverage")})
-            output["projection"] = semantic["cluster"].get("points", [])
+            output["projection"] = semantic.get("projection")
+            output["distance_space"] = semantic["parameters"]["distance_space"]
+            output["selection"] = semantic["parameters"]["selection"]
             rows = semantic["semantic_results"]
         except Exception as exc:
-            output.update(status="error", error="Não foi possível concluir UMAP/HDBSCAN; a comparação vetorial do conteúdo original foi preservada.",
+            output.update(status="error", error="Não foi possível concluir as etapas de recuperação selecionadas; a comparação vetorial do conteúdo original foi preservada.",
                           error_type=type(exc).__name__)
             output["warnings"].append(output["error"])
             rows = []
@@ -346,6 +354,10 @@ def _fuse(spaces, config, key="results"):
             group["score"] += contribution
             group["evidence"].append({"profile_id": space["profile_id"], "rank": rank,
                                       "distance": row["distance"], "cosine_similarity": row["cosine_similarity"],
+                                      "distance_space": space["distance_space"] if key == "results" else "original_l2_normalized",
+                                      "original_distance": row.get("original_distance"),
+                                      "original_cosine_similarity": row.get("original_cosine_similarity"),
+                                      "projected_distance": row.get("projected_distance"),
                                       "rrf_contribution": contribution, "metric": space["metric"],
                                       "categories": row["categories"], "matched_vectors": row["matched_vectors"]})
     ordered = sorted(grouped.values(), key=lambda group: (-group["score"], group["row"]["topic_id"]))
@@ -353,6 +365,7 @@ def _fuse(spaces, config, key="results"):
     for position, group in enumerate(ordered[:config["top_k"]], 1):
         row = deepcopy(group["row"])
         row.update(position=position, distance=None, cosine_similarity=None, profile_id=None,
+                   distance_space="per_model", original_distance=None, original_cosine_similarity=None, projected_distance=None,
                    fusion_score=group["score"], ranking="rrf", model_evidence=group["evidence"],
                    matched_vectors=[match for proof in group["evidence"] for match in proof["matched_vectors"]])
         row["categories"] = sorted({category for proof in group["evidence"] for category in proof["categories"]})
@@ -369,7 +382,8 @@ def _software():
             packages[package] = version(package)
         except PackageNotFoundError:
             packages[package] = None
-    return {"autorag": "0.2.0", "python": platform.python_version(), "packages": packages}
+    return {"autorag": "0.2.0", "retrieval_pipeline": "independent-stages-1",
+            "python": platform.python_version(), "packages": packages}
 
 
 def run_comparison(project, request, providers=None):
@@ -517,7 +531,7 @@ def _lines(comparison):
                          "config": experiment["config"], "result": row, "analysis": row.get("analysis"),
                          "provenance": [{key: space.get(key) for key in (
                              "profile_id", "profile", "profile_fingerprint", "indices", "input_reference", "input_checksum",
-                             "input_source_reference", "input_source_checksum")}
+                             "input_source_reference", "input_source_checksum", "distance_space", "parameters")}
                              for space in experiment.get("spaces", [])]})
     return rows
 
@@ -599,14 +613,14 @@ def export_comparison(project, comparison_id, format="json"):
     if format == "csv":
         stream = io.StringIO(newline="")
         fields = ["comparison_id", "experiment_id", "experiment_name", "query", "date", "base_revision",
-                  "position", "topic_id", "title", "distance", "cosine_similarity", "fusion_score",
+                  "position", "topic_id", "title", "distance", "distance_space", "original_distance", "projected_distance", "cosine_similarity", "cosine_similarity_space", "fusion_score",
                   "classification", "relevant", "comment", "utility_rank", "analysis", "config", "provenance", "result"]
         writer = csv.DictWriter(stream, fieldnames=fields)
         writer.writeheader()
         for row in rows:
             result, analysis = row["result"], row["analysis"] or {}
             flat = {key: row.get(key) for key in fields if key in row}
-            flat.update({key: result.get(key) for key in ("position", "topic_id", "title", "distance", "cosine_similarity", "fusion_score")})
+            flat.update({key: result.get(key) for key in ("position", "topic_id", "title", "distance", "distance_space", "original_distance", "projected_distance", "cosine_similarity", "cosine_similarity_space", "fusion_score")})
             flat.update({key: analysis.get(key) for key in ("classification", "relevant", "comment", "utility_rank")})
             for key in ("analysis", "config", "provenance", "result"):
                 flat[key] = json.dumps(row.get(key), ensure_ascii=False, allow_nan=False)
@@ -709,7 +723,10 @@ def reproduce_comparison(project, comparison_id):
 def _bundle_csv(rows):
     fields = ["scope", "origin", "comparison_id", "experiment_id", "experiment_name", "profile_id", "model",
               "topic_id", "title", "category", "embedding_id", "matrix_row", "vectors_file", "query_file",
-              "metric", "vector_distance", "vector_cosine_similarity", "vector_cosine_distance",
+              "metric", "distance_space", "vector_distance", "original_distance", "original_cosine_similarity",
+              "projection_file", "projection_row", "projected_distance", "projected_cosine_distance",
+              "projected_euclidean_distance", "projected_manhattan_distance",
+              "vector_cosine_similarity", "vector_cosine_distance",
               "vector_euclidean_distance", "vector_manhattan_distance", "result_position", "topic_distance",
               "topic_cosine_similarity", "model_rank", "fusion_score", "fusion_contribution", "fusion_rank",
               "classification", "relevant", "comment", "utility_rank", "analysis", "source_reference"]
@@ -756,7 +773,7 @@ def export_vector_bundle(project, comparison_id, *, persist=True):
                 return archive_path.read_bytes()
         if not persist:
             raise ValueError("O pacote vetorial não está disponível ou está desatualizado. Execute ou reproduza a comparação para gerá-lo.")
-        files, profiles, associations, source_cache = {}, {}, [], {}
+        files, profiles, associations, source_cache, projections = {}, {}, [], {}, {}
 
         def json_bytes(value):
             return (json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False)+"\n").encode("utf-8")
@@ -851,6 +868,42 @@ def export_vector_bundle(project, comparison_id, *, persist=True):
                     "original_available": originals is not None})
             return state, state["vector_keys"][key], effective, expected
 
+        def ensure_projection(experiment, space):
+            projection = space.get("projection")
+            if not isinstance(projection, dict) or projection.get("space") != "umap_projection":
+                return None
+            key = (experiment["experiment_id"], space["profile_id"])
+            if key in projections:
+                return projections[key]
+            points = projection["points"]
+            queries = [point for point in points if point.get("is_query")]
+            documents = [point for point in points if not point.get("is_query")]
+            dimensions = projection["dimensions"]
+            if len(queries) != 1 or type(dimensions) is not int or not 2 <= dimensions <= 50:
+                raise ValueError("Projeção salva com consulta ou dimensão inválida.")
+            query = np.asarray(queries[0]["coordinates"], dtype=np.float64)
+            matrix = np.asarray([point["coordinates"] for point in documents], dtype=np.float64)
+            if query.shape != (dimensions,) or matrix.shape != (len(documents), dimensions):
+                raise ValueError("Coordenadas divergentes na projeção salva.")
+            positions = {point["embedding_id"]: index for index, point in enumerate(documents)}
+            if len(positions) != len(documents):
+                raise ValueError("IDs duplicados na projeção salva.")
+            experiment_id = _identifier(experiment["experiment_id"], "Experimento")
+            profile_id = _identifier(space["profile_id"], "Perfil")
+            path = f"projecoes/{experiment_id}/{profile_id}.npz"
+            files[path] = _npz_bytes(consulta=query[None, :], vetores=matrix)
+            state = {"experiment_id": experiment_id, "profile_id": profile_id,
+                     "space": "umap_projection", "dimensions": dimensions, "normalization": "none",
+                     "file": path, "query_array": "consulta", "vectors_array": "vetores",
+                     "query_embedding_id": queries[0]["embedding_id"],
+                     "parameters": deepcopy(space.get("parameters", {})),
+                     "entries": [{"matrix_row": index, "embedding_id": point["embedding_id"],
+                                  "topic_id": point["topic_id"], "category": point["category"]}
+                                 for index, point in enumerate(documents)],
+                     "positions": positions, "query": query, "matrix": matrix}
+            projections[key] = state
+            return state
+
         def add_rows(experiment, rows, scope, origin, forced_space=None):
             spaces = {space["profile_id"]: space for space in experiment.get("spaces", []) if space.get("input_reference")}
             for row in rows:
@@ -863,13 +916,27 @@ def export_vector_bundle(project, comparison_id, *, persist=True):
                     proof = next((item for item in row.get("model_evidence", []) if item["profile_id"] == profile_id), {})
                     similarity = float(np.clip(effective @ state["query_effective"], -1, 1))
                     delta = effective-state["query_effective"]
+                    projection = ensure_projection(experiment, space)
+                    projected = {}
+                    if projection is not None and match["embedding_id"] in projection["positions"]:
+                        projected_row = projection["positions"][match["embedding_id"]]
+                        projected_vector = projection["matrix"][projected_row:projected_row+1]
+                        projected.update(projection_file=projection["file"], projection_row=projected_row)
+                        for projected_metric in ("cosine", "euclidean", "manhattan"):
+                            projected["projected_"+projected_metric+"_distance"] = float(_projection_distances(
+                                projected_vector, projection["query"], projected_metric)[0])
+                        projected["projected_distance"] = projected["projected_"+space["metric"]+"_distance"]
                     associations.append({"scope": scope, "origin": origin, "comparison_id": comparison_id,
                         "experiment_id": experiment["experiment_id"], "experiment_name": experiment["config"]["name"],
                         "profile_id": profile_id, "model": state["profile"]["modelo"],
                         "topic_id": row["topic_id"], "title": row.get("title", ""), "category": match["category"],
                         "embedding_id": match["embedding_id"], "matrix_row": target_row,
                         "query_file": state["query_file"], "vectors_file": state["vectors_file"],
-                        "metric": space["metric"], "vector_distance": match["distance"],
+                        "metric": space["metric"], "distance_space": match.get("distance_space", "original_l2_normalized"),
+                        "original_distance": {"cosine": 1-similarity, "euclidean": float(np.linalg.norm(delta)),
+                                              "manhattan": float(np.sum(np.abs(delta)))}[space["metric"]],
+                        "original_cosine_similarity": similarity, **projected,
+                        "vector_distance": match["distance"],
                         "vector_cosine_similarity": match["cosine_similarity"],
                         "vector_cosine_distance": 1-similarity, "vector_euclidean_distance": float(np.linalg.norm(delta)),
                         "vector_manhattan_distance": float(np.sum(np.abs(delta))),
@@ -884,6 +951,7 @@ def export_vector_bundle(project, comparison_id, *, persist=True):
             for space in experiment.get("spaces", []):
                 if space.get("input_reference"):
                     ensure_profile(space)
+                    ensure_projection(experiment, space)
             add_rows(experiment, experiment.get("results", []), "retrieval", "experiment")
             add_rows(experiment, experiment.get("baseline_results", []), "baseline", "experiment")
             if experiment["status"] == "error":
@@ -904,15 +972,21 @@ def export_vector_bundle(project, comparison_id, *, persist=True):
         files["resultado.json"] = json_bytes(comparison)
         files["configuracao.json"] = json_bytes({"query": comparison["query"], **comparison["configuration"]})
         files["metricas.csv"] = _bundle_csv(associations)
-        manifest = {"schema_version": "1.0", "comparison_id": comparison_id, "result_digest": result_digest,
+        manifest = {"schema_version": "1.1", "comparison_id": comparison_id, "result_digest": result_digest,
                     "query": comparison["query"], "base_revision": comparison["base_revision"],
                     "base_checksum": comparison["base_checksum"], "profiles": public_profiles,
                     "associations": associations, "software": comparison.get("software"),
-                    "numeric_policy": "Exact saved coordinates and dtypes; effective arrays explicitly apply the recorded L2 normalization.",
+                    "projections": [{key: value for key, value in projection.items() if key not in {"positions", "query", "matrix"}}
+                                    for projection in projections.values()],
+                    "numeric_policy": "Exact saved coordinates and dtypes; original effective arrays apply L2 normalization. UMAP arrays retain raw, unnormalized fitted coordinates per experiment and model.",
                     "formulas": {"effective": "L2-normalize within each model; query and corpus have the same model dimensions",
                                  "cosine": "1 - clip(dot(query_effective, vector_effective), -1, 1)",
                                  "euclidean": "norm(query_effective - vector_effective, 2)",
                                  "manhattan": "sum(abs(query_effective - vector_effective))",
+                                 "projected_cosine": "1 - clip(dot(query / norm(query), vector / norm(vector)), -1, 1); any zero coordinate has zero similarity",
+                                 "projected_euclidean": "norm(query_projection - vector_projection, 2); no normalization",
+                                 "projected_manhattan": "sum(abs(query_projection - vector_projection)); no normalization",
+                                 "metric_scope": "vector_distance uses distance_space; vector_cosine_distance/vector_euclidean_distance/vector_manhattan_distance always use original_l2_normalized",
                                  "rrf": "sum(1 / (60 + model_rank)); distances are never compared across model spaces"},
                     "files": [{"path": name, "sha256": hashlib.sha256(content).hexdigest()} for name, content in files.items()]}
         files["manifesto.json"] = json_bytes(manifest)
