@@ -24,7 +24,7 @@ export default {
     if (origin.protocol !== 'https:' || origin.username || origin.password || origin.search || origin.hash || origin.pathname !== '/') {
       return jsonError('BACKEND_URL deve ser a origem HTTPS do serviço Python, sem caminho ou credenciais.', 503);
     }
-    if (!['GET','POST'].includes(request.method)) return jsonError('Método não permitido.', 405);
+    if (!['GET', 'POST'].includes(request.method) && !(request.method === 'PUT' && url.pathname === '/api/consultation-config')) return jsonError('Método não permitido.', 405);
     // Access credentials are supplied by the visitor. No model key is sent to the browser.
     const authorization = request.headers.get('Authorization');
     if (!authorization || !authorization.startsWith('Bearer ')) return jsonError('Informe o token de acesso nas configurações.', 401);
@@ -37,7 +37,7 @@ export default {
     const contentType = request.headers.get('Content-Type');
     if (contentType) headers.set('Content-Type',contentType);
     let body;
-    if (request.method === 'POST') {
+    if (request.method === 'POST' || request.method === 'PUT') {
       const chunks = []; let size = 0;
       if (request.body) {
         const reader = request.body.getReader();

@@ -89,14 +89,14 @@ export default {
       for (const [name, value] of Object.entries(security)) headers.set(name, value);
       return new Response(response.body, { status: response.status, headers });
     }
-    if (!['GET', 'POST'].includes(request.method)) return jsonError('Método não permitido.', 405);
+    if (!['GET', 'POST'].includes(request.method) && !(request.method === 'PUT' && url.pathname === '/api/consultation-config')) return jsonError('Método não permitido.', 405);
     const apiToken = resolveApiToken(env);
     if (apiToken.length < 32) return jsonError('Configure o segredo AUTORAG_API_TOKEN no Worker.', 503);
     if (!await validToken(request.headers.get('Authorization'), apiToken)) return jsonError('Informe o token de acesso nas configurações.', 401);
     const headers = new Headers({ Authorization: request.headers.get('Authorization')! });
     if (request.headers.has('Content-Type')) headers.set('Content-Type', request.headers.get('Content-Type')!);
     let body: Uint8Array | undefined;
-    if (request.method === 'POST') {
+    if (request.method === 'POST' || request.method === 'PUT') {
       const content = await limitedBody(request, 25 * 1024 * 1024);
       if (content === null) return jsonError('Requisição excede 25 MiB.', 413);
       body = content;

@@ -33,3 +33,11 @@ test('does not follow origin redirects and bounds payloads',async()=>{
  const response=await worker.fetch(req('/api/ingest',{method:'POST',headers:{Authorization:'Bearer token','Content-Length':String(26*1024*1024)},body:'x'}),{BACKEND_URL:'https://api.example'});
  assert.equal(response.status,413);
 });
+
+test('forwards authenticated consultation settings PUT and keeps other methods restricted',async()=>{
+ const prior=globalThis.fetch;let calls=0;
+ globalThis.fetch=async(target,options)=>{calls++;assert.equal(target.pathname,'/api/consultation-config');assert.equal(options.method,'PUT');assert.deepEqual(JSON.parse(new TextDecoder().decode(options.body)),{experiments:[],analysis:{enabled:false}});return Response.json({experiments:[]});};
+ const env={BACKEND_URL:'https://api.example'};const headers={Authorization:'Bearer local-token','Content-Type':'application/json'};
+ try{const response=await worker.fetch(req('/api/consultation-config',{method:'PUT',headers,body:JSON.stringify({experiments:[],analysis:{enabled:false}})}),env);assert.equal(response.status,200);assert.equal(calls,1);assert.equal((await worker.fetch(req('/api/status',{method:'PUT',headers,body:'{}'}),env)).status,405);assert.equal((await worker.fetch(req('/api/consultation-config',{method:'PUT',body:'{}'}),env)).status,401);assert.equal(calls,1);}
+ finally{globalThis.fetch=prior;}
+});
