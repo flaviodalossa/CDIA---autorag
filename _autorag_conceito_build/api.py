@@ -239,6 +239,73 @@ def get_job(job_id: str):
     return read_json(path)
 
 
+
+def _require_transfer_auth(request: Request):
+    # Transfers expose complete document data: require an explicit configured
+    # bearer even on loopback, in addition to the application API middleware.
+    expected = os.getenv("AUTORAG_API_TOKEN", "")
+    if not expected:
+        raise HTTPException(403, "Importação e exportação exigem AUTORAG_API_TOKEN configurado.")
+    supplied = request.headers.get("authorization", "")
+    if not hmac.compare_digest(supplied, "Bearer "+expected):
+        raise HTTPException(401, "Token de acesso inválido.")
+
+
+@app.post("/api/base/import")
+async def import_prepared(request: Request):
+    _require_transfer_auth(request)
+    import asyncio
+    from autorag.base_import import MAX_TRANSFER_BYTES, prepare_base_import, import_prepared_base
+    async with request.form(max_files=2, max_fields=0) as form:
+        entries = list(form.multi_items())
+        if any(key not in {"base_file", "legacy_npz"} or not hasattr(value, "read") for key, value in entries):
+            raise ValueError("Envie somente base_file JSON e legacy_npz opcional como arquivos.")
+        if sum(key == "base_file" for key, _ in entries) != 1 or sum(key == "legacy_npz" for key, _ in entries) > 1:
+            raise ValueError("Forneça exatamente um base_file e no máximo um legacy_npz.")
+        payload = {}
+        size = 0
+        for key, value in entries:
+            data = await value.read(MAX_TRANSFER_BYTES+1)
+            size += len(data)
+            if size > MAX_TRANSFER_BYTES:
+                raise HTTPException(413, "A transferência excede 25 MiB.")
+            payload[key] = data
+    prepared = await asyncio.to_thread(prepare_base_import, payload["base_file"], payload.get("legacy_npz"))
+    return submit("base_import", lambda: import_prepared_base(project, prepared))
+
+
+@app.get("/api/base/export")
+def export_prepared(request: Request):
+    _require_transfer_auth(request)
+    from autorag.base_import import canonical_digest, DIGEST_ALGORITHM
+    with project.lock():
+        if not project.base_path.exists():
+            raise HTTPException(404, "Nenhuma base foi importada.")
+        base = project.base()
+        checksum = canonical_digest(base)
+    return JSONResponse(base, headers={
+        "Content-Disposition": 'attachment; filename="autorag-base.json"',
+        "X-AutoRAG-Canonical-Digest": checksum,
+        "X-AutoRAG-Digest-Algorithm": DIGEST_ALGORITHM,
+    })
+
+
+@app.post("/api/indices/import")
+async def import_prepared_index(request: Request):
+    _require_transfer_auth(request)
+    import asyncio
+    from autorag.base_import import MAX_TRANSFER_BYTES
+    from autorag.index_transfer import validate_index_bundle, import_index_bundle
+    async with request.form(max_files=1, max_fields=0) as form:
+        entries = list(form.multi_items())
+        if len(entries) != 1 or entries[0][0] != "index_file" or not hasattr(entries[0][1], "read"):
+            raise ValueError("Forneça exatamente um arquivo index_file.")
+        data = await entries[0][1].read(MAX_TRANSFER_BYTES+1)
+        if len(data) > MAX_TRANSFER_BYTES:
+            raise HTTPException(413, "A transferência excede 25 MiB.")
+    await asyncio.to_thread(validate_index_bundle, project, data)
+    return submit("index_import", lambda: import_index_bundle(project, data))
+
 class SearchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     query: str = Field(min_length=1, max_length=50000)

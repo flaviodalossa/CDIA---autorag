@@ -51,6 +51,17 @@
       <section id="page-preparar" class="page" aria-labelledby="preparar-title" hidden>
         <div class="page-heading"><div><p class="eyebrow">DA DOCUMENTAÇÃO À BASE CONSULTÁVEL</p><h1 id="preparar-title">Prepare sua base normativa</h1><p>Documentos de qualquer órgão. Metadados preenchidos aqui, sem planilha obrigatória.</p></div></div>
         <ol class="steps" aria-label="Etapas do processamento"><li class="active" id="step-sources"><span>1</span> Fornecer fontes</li><li id="step-review"><span>2</span> Revisar e incorporar</li><li id="step-embeddings"><span>3</span> Gerar vetores</li></ol>
+        <details class="panel prepared-base-panel">
+          <summary>Importar base já preparada</summary>
+          <p class="panel-intro">Envie uma base JSON para preservar os IDs, textos, metadados, perguntas, respostas e resumos já revisados. Esta importação não chama o LLM. Documentos com o mesmo ID serão atualizados.</p>
+          <form id="base-import-form">
+            <div class="form-grid"><div><label for="prepared-base-file">Base preparada · JSON</label><input id="prepared-base-file" type="file" accept=".json,application/json" required></div><div><label for="prepared-base-index">Índice legado · NPZ <span class="optional">opcional</span></label><input id="prepared-base-index" type="file" accept=".npz"></div></div>
+            <p class="field-help">O índice legado é mantido em seu próprio perfil de embeddings. Você pode gerar outras categorias na etapa Gerar vetores.</p>
+            <div class="form-actions"><button id="export-base" class="button secondary small" type="button">Baixar base atual · JSON <span aria-hidden="true">↓</span></button><button id="import-base-button" class="button primary" type="submit">Importar base preparada <span aria-hidden="true">↑</span></button></div>
+          </form>
+          <div id="base-import-progress" class="progress-card" role="status" aria-live="polite" hidden><span class="spinner" aria-hidden="true"></span><div><strong id="base-import-progress-label">Importando a base preparada…</strong><p>Aguarde a confirmação da importação pelo serviço.</p></div></div>
+          <div id="base-import-result" class="message" role="status" aria-live="polite" hidden></div>
+        </details>
         <section class="panel llm-panel" id="llm-settings" aria-labelledby="llm-title">
           <div class="panel-heading"><div><p class="eyebrow">PREPARAÇÃO DO CONTEÚDO</p><h2 id="llm-title">Perguntas, respostas e resumo com LLM</h2></div><span class="pill">PADRÃO: OPENAI LUNA 6</span></div>
           <label class="checkbox-line llm-toggle"><input type="checkbox" id="llm-enabled" checked><span><strong>Enriquecer os tópicos com um modelo de linguagem</strong><small>O texto extraído e os metadados são enviados ao provedor escolhido para elaborar perguntas sugeridas, resposta-síntese e resumo. Serviços por API podem ter cobrança.</small></span></label>

@@ -17,11 +17,19 @@ Abra http://127.0.0.1:8766. O lançador reutiliza o ambiente virtual existente q
 ## Preparar uma base
 
 1. Em **Preparar base**, informe URLs HTTPS públicas, caminhos do servidor autorizados ou envie PDF, TXT, Markdown, HTML e DOCX. Metadados são opcionais e editáveis no formulário: título, órgão, eixo, idioma e campos extras JSON. Não há dependência de planilha separada.
-2. Gere a prévia e revise tópicos, fonte e metadados. A extração inicial preserva o texto, produz resumo extrativo e pergunta em template; os documentos registram essas características e a necessidade de revisão. Essa etapa não chama um LLM. Documentos PDF digitalizados precisam de OCR prévio. A API Python de ingestão aceita um callback `enrich` para representações geradas por modelo e revisadas.
+2. Gere a prévia e revise tópicos, fonte e metadados. Por padrão, o OpenAI `gpt-6-luna` elabora resumo, resposta-síntese e perguntas, preservando o texto original. Configure `OPENAI_API_KEY` como segredo no servidor. É possível escolher outro modelo OpenAI, um modelo generativo Ollama local ou uma API compatível configurada no servidor; desmarcar o enriquecimento usa o modo extrativo explícito. A prévia registra provedor, modelo e versão do prompt, com revisão humana pendente. Chamadas por API podem ser cobradas. Documentos PDF digitalizados precisam de OCR prévio.
 3. Incorpore a prévia. A API usa seu `preview_id` para gravar exatamente os documentos revisados, sem baixar novamente a fonte. Fontes repetidas no mesmo lote são rejeitadas; outra incorporação da mesma fonte atualiza o documento e conserva a versão anterior da base.
-4. Escolha/cadastre um perfil no laboratório e gere as categorias. Geração é explícita e usa o provedor configurado. Modelos OpenAI/Gemini exigem chave no servidor; Ollama exige o modelo e endpoint disponíveis no servidor Python. Os vetores não são gerados automaticamente ao importar documentos. Na base local existente, só a categoria `topico_total_sem_palavras_chave` tem índice; gere as quatro categorias do novo padrão antes da primeira consulta semântica.
+4. Escolha/cadastre um perfil no laboratório e gere as categorias. Geração é explícita e usa o provedor configurado. Modelos OpenAI/Gemini exigem chave no servidor; Ollama exige o modelo e endpoint disponíveis no servidor Python. Os vetores não são gerados automaticamente ao importar documentos. Uma base com apenas o índice legado de `topico_total_sem_palavras_chave` precisa das quatro categorias do novo padrão antes da primeira consulta semântica.
 
 Um caminho como `C:\normas\lei.pdf` se refere ao computador do backend. Para habilitar caminhos locais, configure `AUTORAG_ALLOWED_SOURCE_ROOTS` com diretórios autorizados (` ; ` no Windows; ` : ` no Linux). Para arquivos do computador de quem está navegando, use upload. URLs privadas/localhost são recusadas. Limites: 20 MiB por documento, 25 MiB por requisição HTTP e 30 fontes por lote. Órgão/idioma/vigência não são inferidos quando ausentes.
+
+## Importar uma base já preparada
+
+Em **Preparar base → Importar base já preparada**, envie o JSON estruturado do AutoRAG e, opcionalmente, o NPZ legado. Os documentos são atualizados por `documento_id`; IDs, textos, metadados, representações e tópicos inativos são preservados. A importação reaproveita as representações existentes e não chama LLM. O índice legado mantém seu próprio perfil; o perfil ativo do projeto permanece selecionado. A operação entra na fila e confirma a persistência antes de concluir.
+
+O botão **Exportar base atual** baixa o JSON para conferência e cópia privada. Importação e exportação estruturadas exigem `AUTORAG_API_TOKEN` no servidor e o mesmo Bearer token da aplicação, inclusive no ambiente local. O limite HTTP é 25 MiB por requisição. Mantenha os datasets e índices no armazenamento privado da aplicação; o pacote GitHub inclui somente os fontes.
+
+As rotas correspondentes são `POST /api/base/import` (multipart `base_file` e `legacy_npz` opcional) e `GET /api/base/export`. A transferência de índices nativos utiliza `POST /api/indices/import` com `index_file`; aceita apenas um perfil já cadastrado, com os mesmos pesos, dimensões, preparação e hashes de conteúdo. A transferência não gera novos embeddings.
 
 ## Recuperação padrão
 

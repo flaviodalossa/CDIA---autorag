@@ -371,6 +371,34 @@
     } catch (error) { message(error.message,'error','generate-result'); }
     finally { setBusy('generate-button', false, 'generate-progress'); }
   }
+  async function importPreparedBase(event) {
+    event.preventDefault();
+    const baseFile = $('prepared-base-file').files[0];
+    if (!baseFile) { message('Selecione a base preparada em JSON.','warning','base-import-result'); return; }
+    const body = new FormData(); body.append('base_file',baseFile);
+    const legacyIndex = $('prepared-base-index').files[0];
+    if (legacyIndex) body.append('legacy_npz',legacyIndex);
+    setBusy('import-base-button',true,'base-import-progress'); $('export-base').disabled = true;
+    $('base-import-progress-label').textContent = 'Importando a base preparada…'; message('','','base-import-result');
+    try {
+      const result = await request('/api/base/import',{method:'POST',body,progress:text => $('base-import-progress-label').textContent = text});
+      const count = value => new Intl.NumberFormat('pt-BR').format(Number(value) || 0);
+      let summary = 'Importação concluída: ' + count(result.documents) + ' documentos e ' + count(result.topics) + ' tópicos';
+      if (Number.isInteger(result.active_topics) && Number.isInteger(result.inactive_topics)) summary += ' (' + count(result.active_topics) + ' ativos e ' + count(result.inactive_topics) + ' inativos)';
+      summary += '.';
+      if (Number(result.legacy_embeddings) > 0) summary += ' ' + count(result.legacy_embeddings) + ' embeddings legados preservados em perfil próprio.';
+      invalidatePreview(); $('base-import-form').reset();
+      $('step-sources').classList.remove('active'); $('step-review').classList.remove('active'); $('step-embeddings').classList.add('active');
+      message(summary,'success','base-import-result'); await refreshStatus({quiet:true});
+    } catch(error) { message(error.message,'error','base-import-result'); }
+    finally { setBusy('import-base-button',false,'base-import-progress'); $('export-base').disabled = false; }
+  }
+  async function exportBase() {
+    $('export-base').disabled = true;
+    try { const base = await request('/api/base/export'); exportJSON(base,'autorag-base.json'); message('Base atual exportada em JSON.','success','base-import-result'); }
+    catch(error) { message(error.message,'error','base-import-result'); }
+    finally { $('export-base').disabled = false; }
+  }
   function readLab() {
     const config = {
       profile_id:$('search-profile').value, categories:selectedCategories('search'), mode:document.querySelector('input[name=mode]:checked').value,
@@ -554,6 +582,7 @@
   $('refresh-status').addEventListener('click',() => refreshStatus()); $('search-form').addEventListener('submit',search);
   $('cancel-search').addEventListener('click',() => state.searchController?.abort()); $('lab-form').addEventListener('submit',applyLab); $('reset-lab').addEventListener('click',resetLab);
   $('ingest-form').addEventListener('submit',preview); $('ingest-form').addEventListener('input',invalidatePreview); $('commit-button').addEventListener('click',commit);
+  $('base-import-form').addEventListener('submit',importPreparedBase); $('export-base').addEventListener('click',exportBase);
   $('files').addEventListener('change',() => {state.selectedFiles.push(...$('files').files);$('files').value = '';renderFiles();invalidatePreview();});
   const zone = document.querySelector('.upload-zone');
   ['dragenter','dragover'].forEach(name => zone.addEventListener(name,event => {event.preventDefault();zone.classList.add('dragging');}));
