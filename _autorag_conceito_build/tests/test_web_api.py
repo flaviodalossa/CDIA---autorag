@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import tempfile
 import time
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -79,8 +80,121 @@ class WebAPITests(unittest.TestCase):
     def upload(self, *, commit=False, metadata=None, filename="norma.md", content=None):
         return self.client.post("/api/ingest", data={
             "sources": "[]", "metadata": json.dumps(metadata or {}, ensure_ascii=False),
+            "llm": json.dumps({"provider": "extractive"}),
             "commit": str(commit).lower(),
         }, files={"files": (filename, content or "# Compras\n\nArt. 1º Mantenha os registros públicos.".encode(), "text/markdown")})
+
+    def save_model_profile(self, provider="ollama"):
+        profile = {"perfil_id": "pf_model_check", "provedor": provider,
+                   "modelo": "bge-m3", "dimensoes": 2}
+        config = self.project.config()
+        config["perfis"][profile["perfil_id"]] = profile
+        config["perfil_ativo_id"] = profile["perfil_id"]
+        self.project.save_config(config)
+        return profile
+
+    def test_model_catalog_sanitizes_discovery_and_matches_profiles(self):
+        profile = self.save_model_profile()
+        discovered = [
+            {"provedor": "ollama", "modelo": "bge-m3:latest", "dimensoes": 1024,
+             "descricao": "Modelo local", "custo": "local", "disponivel": True,
+             "caminho_local": "PRIVATE_PATH_MARKER", "endpoint": "PRIVATE_ENDPOINT_MARKER",
+             "api_key": "PRIVATE_CREDENTIAL_MARKER", "detalhe": "PRIVATE_DETAIL_MARKER"},
+            {"provedor": "openai", "modelo": "text-embedding-3-small", "dimensoes": 1536,
+             "disponivel": False, "detalhe": "PRIVATE_DETAIL_MARKER"},
+        ]
+        with patch.object(api, "available_models", return_value=discovered) as discover, patch.object(api, "get_provider") as provider:
+            response = self.client.get("/api/models")
+        self.assertEqual(response.status_code, 200, response.text)
+        result = response.json()
+        discover.assert_called_once()
+        provider.assert_not_called()
+        self.assertEqual(result["models"][0]["profile_ids"], [profile["perfil_id"]])
+        self.assertTrue(result["models"][0]["disponivel"])
+        self.assertFalse(result["models"][1]["disponivel"])
+        self.assertIn("credencial", result["models"][1]["detalhe"])
+        self.assertNotIn("PRIVATE_", response.text)
+        self.assertIn("checked_at", result)
+        self.assertFalse(self.project.base_path.exists())
+
+    def test_local_model_check_uses_two_synthetic_roles_without_vectors_or_base(self):
+        profile = self.save_model_profile()
+        calls = []
+        class Probe:
+            def embed(self, values, role):
+                calls.append((values, role))
+                return [[3.0, 4.0]]
+        with patch.object(api, "get_provider", return_value=Probe()):
+            job = self.wait_for_job(self.client.post("/api/models/check", json={"profile_id": profile["perfil_id"]}))
+        self.assertEqual(job["status"], "succeeded", job)
+        result = job["result"]
+        self.assertEqual(result["quantity"], 2)
+        self.assertEqual(result["dimensions"], 2)
+        self.assertEqual(result["norms"], {"consulta": 5.0, "documento": 5.0})
+        self.assertTrue(result["finite"])
+        self.assertGreaterEqual(result["latency_ms"], 0)
+        self.assertEqual([role for _, role in calls], ["consulta", "documento"])
+        self.assertTrue(all(len(values) == 1 for values, _ in calls))
+        self.assertNotIn("embeddings", result)
+        self.assertNotIn("vectors", result)
+        self.assertFalse(self.project.base_path.exists())
+
+    def test_model_check_rejects_paid_providers_before_job_or_inference(self):
+        for provider_name in ("openai", "gemini"):
+            profile = self.save_model_profile(provider_name)
+            with patch.object(api, "get_provider") as provider:
+                response = self.client.post("/api/models/check", json={"profile_id": profile["perfil_id"]})
+            self.assertEqual(response.status_code, 422, response.text)
+            provider.assert_not_called()
+        self.assertEqual(list((self.project.root/"jobs").glob("*.json")), [])
+
+    def test_model_check_fails_for_wrong_dimensions_nonfinite_or_zero_vector(self):
+        profile = self.save_model_profile()
+        for matrix in ([[1.0]], [[float("nan"), 1.0]], [[0.0, 0.0]]):
+            class Probe:
+                def embed(self, values, role):
+                    return matrix
+            with patch.object(api, "get_provider", return_value=Probe()):
+                job = self.wait_for_job(self.client.post("/api/models/check", json={"profile_id": profile["perfil_id"]}))
+            self.assertEqual(job["status"], "failed", job)
+            self.assertIn("error", job)
+            self.assertNotIn("result", job)
+        self.assertFalse(self.project.base_path.exists())
+
+    def test_llm_catalog_is_forwarded_without_inference(self):
+        catalog = {"default": {"provider": "openai", "model": "gpt-6-luna"},
+                   "providers": [{"provider": "openai", "label": "OpenAI", "available": False,
+                                  "detail": "Credencial ausente.", "models": []}]}
+        with patch("autorag.llm.llm_catalog", return_value=catalog) as discover:
+            response = self.client.get("/api/llms")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), catalog)
+        discover.assert_called_once_with()
+
+    def test_ingestion_passes_default_llm_enricher_to_urls_and_uploads(self):
+        enrich = object()
+        url_result = SimpleNamespace(documents=[{"documento_id": "doc_url", "nome_documento": "URL", "estrutura": []}], warnings=[])
+        upload_result = SimpleNamespace(documents=[{"documento_id": "doc_upload", "nome_documento": "Upload", "estrutura": []}], warnings=[])
+        with patch("autorag.llm.make_enricher", return_value=enrich) as make, \
+             patch("autorag.ingestion.ingest_sources", return_value=url_result) as urls, \
+             patch("autorag.ingestion.process_upload", return_value=upload_result) as uploads:
+            job = self.wait_for_job(self.client.post("/api/ingest", data={
+                "sources": json.dumps(["https://example.org/norma.txt"]),
+            }, files={"files": ("norma.txt", b"Texto sintetico.", "text/plain")}))
+        self.assertEqual(job["status"], "succeeded", job)
+        make.assert_called_once_with(None)
+        self.assertIs(urls.call_args.kwargs["enrich"], enrich)
+        self.assertIs(uploads.call_args.kwargs["enrich"], enrich)
+        self.assertFalse(self.project.base_path.exists())
+
+    def test_llm_validation_fails_before_enqueue_without_extractive_fallback(self):
+        with patch("autorag.llm.make_enricher", side_effect=api.LLMError("Credencial do LLM ausente.")), \
+             patch("autorag.ingestion.process_upload") as process:
+            response = self.upload()
+        self.assertEqual(response.status_code, 400, response.text)
+        self.assertIn("Credencial", response.json()["detail"])
+        process.assert_not_called()
+        self.assertEqual(list((self.project.root/"jobs").glob("*.json")), [])
 
     def test_authentication_and_health(self):
         self.assertEqual(self.client.get("/health", headers={"Authorization": ""}).status_code, 200)
@@ -144,7 +258,8 @@ class WebAPITests(unittest.TestCase):
 
     def test_preview_commit_uses_reviewed_snapshot_and_preserves_metadata(self):
         preview = self.wait_for_job(self.upload(metadata={"title": "Regras", "eixo": "Gestão"}))["result"]
-        with patch("autorag.ingestion.process_upload", side_effect=AssertionError("Não reprocessar prévia.")):
+        with patch("autorag.ingestion.process_upload", side_effect=AssertionError("Não reprocessar prévia.")), \
+             patch("autorag.llm.make_enricher", side_effect=AssertionError("Não chamar LLM no commit.")):
             job = self.wait_for_job(self.client.post("/api/ingest", data={
                 "commit": "true", "preview_id": preview["preview_id"],
             }))
@@ -170,7 +285,7 @@ class WebAPITests(unittest.TestCase):
         self.assertTrue(list((self.project.root/"historico"/"bases").glob("*.json")))
 
     def test_duplicate_uploaded_names_fail_without_mutating_base(self):
-        response = self.client.post("/api/ingest", data={"commit": "true"}, files=[
+        response = self.client.post("/api/ingest", data={"commit": "true", "llm": '{"provider":"extractive"}'}, files=[
             ("files", ("same.txt", b"Regra um.", "text/plain")),
             ("files", ("same.txt", b"Regra dois.", "text/plain")),
         ])
@@ -182,13 +297,14 @@ class WebAPITests(unittest.TestCase):
     def test_duplicate_local_sources_fail_and_local_paths_require_roots(self):
         source = Path(self.temp.name)/"source.txt"
         source.write_text("Norma administrativa.", encoding="utf-8")
-        failed = self.wait_for_job(self.client.post("/api/ingest", data={"sources": json.dumps([str(source)])}))
+        failed = self.wait_for_job(self.client.post("/api/ingest", data={"sources": json.dumps([str(source)]), "llm": '{"provider":"extractive"}'}))
         self.assertEqual(failed["status"], "failed")
         self.assertIn("desativados", failed["error"])
         with patch.dict(os.environ, {"AUTORAG_ALLOWED_SOURCE_ROOTS": self.temp.name}):
             self.assertTrue(self.client.get("/api/status").json()["local_paths_enabled"])
             job = self.wait_for_job(self.client.post("/api/ingest", data={
                 "sources": json.dumps([str(source), str(source)]),
+                "llm": '{"provider":"extractive"}',
             }))
             self.assertEqual(job["status"], "failed")
             self.assertIn("duplicado", job["error"])

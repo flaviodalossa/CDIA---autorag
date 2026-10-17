@@ -23,4 +23,16 @@ jobs:
       - run: pnpm --dir cloudflare run build
       - run: pnpm --dir cloudflare run check
       - run: pnpm --dir cloudflare test
-      - run: docker build -f cloudflare/Dockerfile -t autorag-cloudflare:ci .
+      - name: Build Python and pinned Ollama CPU models
+        run: docker build -f cloudflare/Dockerfile -t autorag-cloudflare:ci .
+      - name: Keep the image below the standard-1 8 GB disk limit
+        run: |
+          python - <<'PY'
+          import subprocess
+          size = int(subprocess.check_output(['docker', 'image', 'inspect', '--format', '{{.Size}}', 'autorag-cloudflare:ci']))
+          print(f'Uncompressed image size: {size:,} bytes')
+          assert size < 8_000_000_000, 'Image exceeds the standard-1 disk limit'
+          PY
+      - name: Verify both pinned models and embeddings offline within standard-1 resources
+        timeout-minutes: 15
+        run: docker run --rm --network none --memory 4g --memory-swap 4g --cpus 0.5 --entrypoint python autorag-cloudflare:ci -m cloudflare.verify_models --smoke

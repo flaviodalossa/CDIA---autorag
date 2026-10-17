@@ -10,6 +10,9 @@ import os
 from pathlib import Path
 import re
 import threading
+import time
+
+import numpy as np
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -17,7 +20,9 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field
 
 from autorag.core import CATEGORIES, Project, now, read_json, uid, write_json
-from autorag.service import generate, register_profile
+from autorag.llm import LLMError
+from autorag.providers import available_models, get_provider
+from autorag.service import generate, register_profile, require_profile
 from autorag.web_service import history, merge_documents, run_search, status
 
 APP_ROOT = Path(__file__).resolve().parent
@@ -79,6 +84,11 @@ async def invalid(request, exc):
     return JSONResponse({"detail": str(exc)}, status_code=422)
 
 
+@app.exception_handler(LLMError)
+async def invalid_llm(request, exc):
+    return JSONResponse({"detail": str(exc)}, status_code=400)
+
+
 def submit(kind, function):
     with job_lock:
         if sum(j["status"] in {"queued", "running"} for j in jobs.values()) >= MAX_JOBS:
@@ -131,6 +141,89 @@ def get_status():
         result = status(project)
     result["local_paths_enabled"] = bool(os.getenv("AUTORAG_ALLOWED_SOURCE_ROOTS"))
     return result
+
+
+@app.get("/api/models")
+def get_models():
+    """Discover installations and credential presence without inference or secrets."""
+    discovered = available_models(
+        os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434"),
+        str(project.root/"modelos"),
+    )
+    with project.lock():
+        profiles = list(project.config()["perfis"].values())
+    public = []
+    fields = ("provedor", "modelo", "dimensoes", "dimensoes_nativas", "descricao", "custo", "reducao")
+    for row in discovered:
+        provider, model = row["provedor"], row["modelo"]
+        available = bool(row.get("disponivel"))
+        item = {key: row[key] for key in fields if key in row}
+        item["disponivel"] = available
+        if provider in {"openai", "gemini"}:
+            item["detalhe"] = ("Credencial configurada; disponibilidade depende da conta e cota."
+                               if available else "Configure a credencial desta API no servidor.")
+        elif available:
+            item["detalhe"] = "Modelo instalado no servidor de processamento."
+        elif provider == "ollama":
+            item["detalhe"] = "Modelo não instalado ou serviço Ollama indisponível."
+        else:
+            item["detalhe"] = ("Dependência de execução local não instalada."
+                               if "dependência" in row.get("detalhe", "")
+                               else "Modelo não instalado no servidor de processamento.")
+        item["profile_ids"] = [p["perfil_id"] for p in profiles
+                               if p["provedor"] == provider and
+                               (p["modelo"].removesuffix(":latest") if provider == "ollama" else p["modelo"]) ==
+                               (model.removesuffix(":latest") if provider == "ollama" else model)]
+        public.append(item)
+    return {"models": public, "checked_at": now()}
+
+
+class ModelCheckRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    profile_id: str = Field(min_length=1, max_length=100)
+
+
+def check_local_model(profile):
+    """Check both text preparation roles; never return vectors or touch the base."""
+    if profile["provedor"] not in {"ollama", "sentence_transformers"}:
+        raise ValueError("O teste automático aceita somente modelos locais; APIs externas não são chamadas.")
+    started = time.perf_counter()
+    provider = get_provider(profile)
+    expected = profile["dimensoes"]
+    norms = {}
+    examples = (
+        ("consulta", "Qual é o prazo de publicação de uma norma?"),
+        ("documento", "Documento sintético de verificação: a norma deve ser publicada e mantida acessível."),
+    )
+    for role, value in examples:
+        matrix = np.asarray(provider.embed([value], role=role), dtype=np.float64)
+        if matrix.shape != (1, expected):
+            raise ValueError(f"Dimensão inválida no teste de {role}: esperado um vetor de {expected} coordenadas.")
+        if not np.all(np.isfinite(matrix)):
+            raise ValueError(f"O teste de {role} retornou coordenadas não finitas.")
+        norm = float(np.linalg.norm(matrix[0]))
+        if not np.isfinite(norm) or norm <= 0:
+            raise ValueError(f"O teste de {role} retornou norma inválida.")
+        norms[role] = norm
+    return {"profile_id": profile["perfil_id"], "provider": profile["provedor"],
+            "model": profile["modelo"], "quantity": 2, "dimensions": expected,
+            "norms": norms, "finite": True,
+            "latency_ms": round((time.perf_counter()-started)*1000, 2)}
+
+
+@app.post("/api/models/check")
+def check_model(body: ModelCheckRequest):
+    with project.lock():
+        profile = deepcopy(require_profile(project, body.profile_id))
+    if profile["provedor"] not in {"ollama", "sentence_transformers"}:
+        raise ValueError("O teste automático aceita somente modelos locais; APIs externas não são chamadas.")
+    return submit("model_check", lambda: check_local_model(profile))
+
+
+@app.get("/api/llms")
+def get_llms():
+    from autorag.llm import llm_catalog
+    return llm_catalog()
 
 
 @app.get("/api/jobs/{job_id}")
@@ -203,6 +296,13 @@ async def ingest(request: Request):
                 raise ValueError("Prévia não encontrada. Prepare a base novamente.")
             reviewed = read_json(preview_path)
             return submit("ingest", lambda: {**merge_documents(project, reviewed["documents"]), "warnings": reviewed["warnings"], "preview_id": preview_id})
+        from autorag.llm import make_enricher
+        try:
+            llm = json.loads(str(form.get("llm", "null")))
+        except (ValueError, TypeError) as exc:
+            raise ValueError("A configuração do LLM deve ser JSON válido.") from exc
+        if llm is not None and not isinstance(llm, dict):
+            raise ValueError("A configuração do LLM deve ser um objeto JSON.")
         uploads = []
         for key, value in form.multi_items():
             if hasattr(value, "read") and hasattr(value, "filename"):
@@ -212,15 +312,16 @@ async def ingest(request: Request):
                 uploads.append((value.filename or "documento.txt", data))
         if not sources and not uploads:
             raise ValueError("Forneça pelo menos um documento por URL, caminho ou upload.")
+        enrich = make_enricher(llm)
         allowed = tuple(Path(s.strip()).resolve() for s in os.getenv("AUTORAG_ALLOWED_SOURCE_ROOTS", "").split(os.pathsep) if s.strip())
         def work():
             options = IngestionOptions(allowed_roots=allowed)
             incoming, warnings = [], []
             if sources:
-                result = ingest_sources(sources, metadata=metadata, options=options)
+                result = ingest_sources(sources, metadata=metadata, options=options, enrich=enrich)
                 incoming, warnings = list(result.documents), list(result.warnings)
             for filename, data in uploads:
-                part = process_upload(filename, data, metadata=metadata, options=options)
+                part = process_upload(filename, data, metadata=metadata, options=options, enrich=enrich)
                 incoming.extend(part.documents)
                 warnings.extend(part.warnings)
             ids = [d["documento_id"] for d in incoming]

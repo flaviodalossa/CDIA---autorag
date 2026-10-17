@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "registry": "https://registry.ollama.ai",
+  "ollama": {
+    "version": "0.40.5",
+    "url": "https://github.com/ollama/ollama/releases/download/v0.40.5/ollama-linux-amd64.tar.zst",
+    "sha256": "dc5eabc292f9949546c90a97c820f924b035e05243b0de13c7f366182562169c"
+  },
+  "models": [
+    {
+      "name": "bge-m3",
+      "repository": "library/bge-m3",
+      "tag": "latest",
+      "manifest_sha256": "7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab",
+      "model_bytes": 1157671200,
+      "native_dimensions": 1024,
+      "dimensions": 1024,
+      "license": "MIT",
+      "source_url": "https://ollama.com/library/bge-m3"
+    },
+    {
+      "name": "embeddinggemma:300m-qat-q4_0",
+      "repository": "library/embeddinggemma",
+      "tag": "300m-qat-q4_0",
+      "manifest_sha256": "101341d65c2ccbf23f16650b79d30b9fca94a45ffa09a9984c600157b81a58df",
+      "model_bytes": 238530688,
+      "native_dimensions": 768,
+      "dimensions": 256,
+      "license": "Gemma Terms of Use",
+      "source_url": "https://ollama.com/library/embeddinggemma:300m-qat-q4_0"
+    }
+  ]
+}

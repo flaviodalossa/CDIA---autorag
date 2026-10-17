@@ -41,10 +41,24 @@ Após dez minutos sem requisições, o Durable Object verifica a fila. Enquanto 
 
 O hostname http://storage.autorag funciona somente no handler de saída do container e usa o binding STATE do Worker. Nenhuma rota pública expõe o bucket ou /internal/*. Guia oficial: https://developers.cloudflare.com/containers/configuration/workers-connections/.
 
+## Modelos instalados na imagem
+
+A imagem inclui somente os dois modelos encontrados na instalação local auditada: Ollama `bge-m3` e `embeddinggemma:300m-qat-q4_0`. As opções OpenAI e Gemini continuam disponíveis por API. E5, MiniLM, Sentence Transformers, PyTorch e modelos de geração adicionais não são instalados.
+
+`models.lock.json` fixa a versão oficial Ollama 0.40.5, o SHA256 do pacote Linux e os digests completos dos dois manifestos locais. O build baixa os artefatos do GitHub oficial e do registro Ollama; recusa diferenças de digest ou tamanho. Todos os blobs são verificados, incluindo as camadas de licença. Apenas executáveis e bibliotecas CPU entram na imagem final; CUDA, ROCm, MLX e Vulkan são excluídos. Pesos não são enviados ao GitHub nem incorporados ao frontend.
+
+Os modelos ficam em `/opt/models/ollama`, separados de `/data` e do snapshot R2. Cada reinício começa com os mesmos artefatos presentes na imagem. O supervisor inicia Ollama exclusivamente em `127.0.0.1:11434`, confere seus digests e depois inicia o backend. Sinais de parada são encaminhados aos dois processos. Nenhum perfil é registrado automaticamente.
+
+O container mantém `standard-1`, uma fila e um modelo residente por vez. `AUTORAG_OLLAMA_INPUT_BATCH=1` limita batches de textos, `AUTORAG_OLLAMA_NUM_THREAD=1` limita as threads de inferência e `AUTORAG_OLLAMA_KEEP_ALIVE=0` descarrega o modelo ao concluir a operação. São mantidos os limites de contexto, a preparação dos textos e as dimensões existentes: BGE-M3 com 1024 dimensões e EmbeddingGemma com redução Matryoshka para 256, a partir de 768 dimensões nativas. O processamento continua sujeito ao limite de 4 GiB de RAM; o CI verifica ambos com textos curtos e esse limite, sem afirmar uma medição do pico de memória para entradas de contexto máximo.
+
+As licenças originais estão preservadas nas camadas do modelo e em `/opt/models/ollama/licenses/`, com `NOTICE.txt`. BGE-M3 usa MIT; EmbeddingGemma usa os [termos Gemma](https://ai.google.dev/gemma/terms). O download usa os artefatos Ollama já adotados na instalação local, sem novo acesso ao repositório Google no Hugging Face. Os avisos e restrições da licença continuam aplicáveis ao serviço hospedado.
+
+O workflow de CI verifica tamanho descompactado da imagem menor que 8 GB e executa os modelos com rede desabilitada, 4 GiB de RAM, sem swap e 0,5 CPU. Esse teste confere todos os hashes, gera embeddings reais de ambos e valida dimensões nativas e perfis da aplicação. Não utiliza R2 nem provedores pagos. Para executar a mesma verificação: `docker run --rm --network none --memory 4g --memory-swap 4g --cpus 0.5 --entrypoint python autorag-cloudflare:ci -m cloudflare.verify_models --smoke`.
+
 ## Limites desta primeira versão
 
 - Uma instância compartilhada; sem isolamento entre vários órgãos ou usuários.
 - Snapshot de até 90 MiB compactados e 1 GiB descompactado. Cada resultado de operação pode ter até 8 MiB.
-- Modelos baixados e caches locais são descartáveis. O container não oferece um serviço Ollama local. Os perfis de API OpenAI/Gemini funcionam com os secrets de runtime correspondentes.
+- Os dois modelos Ollama estão fixados na imagem. Novos modelos requerem atualizar o manifesto e reconstruir a imagem; downloads feitos apenas durante uma sessão não são persistidos. Os perfis de API OpenAI/Gemini funcionam com os secrets de runtime correspondentes.
 - Interrupções durante uma operação podem exigir reenvio. Publicações da aplicação devem acontecer com a fila ociosa.
 - O limite max_instances=1 contém a escala desta implantação; consumo de CPU, memória, disco, R2 e duração dos trabalhos continua sendo cobrado conforme uso.

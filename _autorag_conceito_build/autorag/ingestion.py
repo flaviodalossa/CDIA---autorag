@@ -509,7 +509,8 @@ def _document(data, name, source, metadata, options, enrich, content_type=""):
             "localizacao": {"tipo": "caracteres_texto_extraido", "inicio": start, "fim": end},
             "processamento": {"modo": mode, "revisao_humana": "pendente",
                               "resumo_extrativo": enrich is None,
-                              "pergunta_em_template": enrich is None},
+                              "pergunta_em_template": enrich is None,
+                              **({"llm": dict(enrich.provenance)} if getattr(enrich, "provenance", None) else {})},
         })
     document = {
         "documento_id": doc_id, "nome_documento": title,
@@ -519,7 +520,8 @@ def _document(data, name, source, metadata, options, enrich, content_type=""):
                   "sha256": _hash(data), "tamanho_bytes": len(data)},
         "processamento": {"extrator": "autorag.ingestion.v1", "data": _now(),
                           "modo": "extrativo_com_pergunta_modelo" if enrich is None else "enriquecedor_externo",
-                          "revisao_humana": "pendente", "metadados_fornecidos": bool(metadata)},
+                          "revisao_humana": "pendente", "metadados_fornecidos": bool(metadata),
+                          **({"llm": dict(enrich.provenance)} if getattr(enrich, "provenance", None) else {})},
     }
     warning = (
         "Pré-processamento extrativo: resumos e respostas são cópias do texto; perguntas usam um modelo de frase. "

@@ -82,7 +82,7 @@ git push -u origin main
 
 4. Faça deploy pelo GitHub integrado ao Pages. Abra o site, informe o token e confirme o estado da base. Importe documentos e gere embeddings no projeto persistente do backend. Para migrar a base atual, transfira `dados`, `indices` e, se necessário, `estudos` diretamente ao volume privado, mantendo caminhos relativos.
 
-O processamento científico e os modelos locais rodam no backend Python. O projeto está preparado para Cloudflare como interface e proxy; publicar apenas os arquivos estáticos deixa a interface sem processamento até configurar o backend. Os fontes foram publicados no GitHub; a publicação no Cloudflare depende da autenticação e dos recursos da conta.
+O processamento científico e os modelos locais rodam no backend Python. Na alternativa Pages, publicar apenas os arquivos estáticos exige configurar o backend separado. A instalação principal usa Workers + Containers + R2, com frontend e backend no mesmo endereço Cloudflare.
 
 As instruções seguem a documentação de [integração Git do Cloudflare Pages](https://developers.cloudflare.com/pages/configuration/git-integration/) e [Functions em modo avançado](https://developers.cloudflare.com/pages/functions/advanced-mode/). O agrupamento segue as APIs oficiais de [UMAP para clustering](https://umap-learn.readthedocs.io/en/latest/clustering.html) e [HDBSCAN](https://hdbscan.readthedocs.io/en/latest/api.html).
 
@@ -97,3 +97,13 @@ npm test
 ```
 
 Os testes usam documentos/vetores sintéticos temporários e provedores falsos; não consomem APIs pagas. A integração científica usa UMAP/HDBSCAN reais quando as dependências de `requirements-web.txt` estão instaladas. A CI repete esses testes no GitHub. Os JSONs normativos e embeddings locais não são alterados pelos testes.
+
+## LLM para elaboração dos tópicos
+
+A tela Preparar base usa OpenAI `gpt-6-luna` por padrão. Cadastre `OPENAI_API_KEY` como segredo do servidor (no Cloudflare, Runtime variables and secrets → Production → Secret). A chave permanece no backend. A presença da chave não comprova saldo, validade nem acesso ao modelo; isso é verificado ao processar uma prévia. O aplicativo também oferece outros modelos OpenAI, Ollama e APIs compatíveis com saídas JSON estruturadas. Não há troca automática de provedor se o modelo escolhido falhar.
+
+No Ollama, informe um modelo generativo previamente instalado no serviço definido por `AUTORAG_LLM_OLLAMA_BASE_URL` (padrão: Ollama local). Essa configuração separada preserva os embeddings locais ao usar um LLM remoto. BGE-M3 e EmbeddingGemma geram embeddings e não elaboram tópicos. Para vLLM, LM Studio ou outro serviço compatível, configure `AUTORAG_LLM_BASE_URL` (incluindo `/v1` quando aplicável) e, se necessário, `AUTORAG_LLM_API_KEY`. URLs de serviços e credenciais são configuradas somente no servidor; serviços remotos exigem HTTPS.
+
+Cada trecho preserva o texto original e seus offsets. O LLM produz resumo, perguntas, resposta, palavras-chave e referências normativas; sua identificação e a versão do prompt ficam registradas na prévia. O usuário revisa antes de confirmar a importação. A opção Extrativo é explícita e não faz elaboração generativa. Confirmar uma prévia já criada não chama o LLM novamente.
+
+No laboratório, o catálogo informa configuração e disponibilidade dos embeddings, permite cadastrar os perfis e testar os modelos locais com entradas sintéticas. Testes automáticos de embeddings não chamam APIs pagas. Na imagem Cloudflare ficam os mesmos pesos locais: BGE-M3 (1.024 dimensões) e EmbeddingGemma 300M QAT Q4_0 (768 dimensões nativas, redução configurada para 256). Os pesos não são enviados ao GitHub nem ao snapshot R2.

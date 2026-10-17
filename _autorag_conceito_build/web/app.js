@@ -85,7 +85,8 @@
     $('breadcrumb').innerHTML = 'Espaço de trabalho <span aria-hidden="true">/</span> <strong>' + names[page] + '</strong>';
     history.replaceState(null, '', '#' + page);
     if (focus) { $('main').focus({preventScroll: true}); window.scrollTo({top: 0, behavior: 'instant'}); }
-    if (page === 'laboratorio') refreshHistory();
+    if (page === 'laboratorio') { refreshHistory(); if (!state.models) refreshModels(); }
+    if (page === 'preparar' && !state.llms) refreshLLMs();
   }
   function renderCategories() {
     for (const name of ['search', 'generate']) {
@@ -131,6 +132,7 @@
       $('sources-help').textContent = data.local_paths_enabled === false ? 'Uma URL por linha ou envie arquivos abaixo. Caminhos locais estão desabilitados neste ambiente.' : 'Uma fonte por linha. Caminhos locais devem existir no servidor da aplicação. Para arquivos do seu computador, use o envio abaixo.';
       if (!state.config.profile_id && data.active_profile) state.config.profile_id = data.active_profile;
       renderProfiles(data.profiles || data.perfis); renderInventory(data.inventory);
+      if (state.models) renderModels();
       $('generation-state').textContent = docCount + ' documentos · ' + topicCount + ' tópicos na base atual.';
       if (!quiet) message('');
     } catch (error) {
@@ -232,6 +234,40 @@
     } catch (error) { message(isAbort(error) ? 'A espera foi interrompida. O processamento já iniciado pode continuar no servidor; consulte o histórico antes de repetir.' : error.message, isAbort(error) ? 'warning' : 'error'); }
     finally { state.searchController = null; setBusy('search-button', false, 'search-progress'); }
   }
+  function updateLLMFields() {
+    const enabled = $('llm-enabled').checked;
+    $('llm-fields').disabled = !enabled;
+    $('llm-extractive-note').hidden = enabled;
+    const provider = state.llms?.providers?.find(row => row.provider === $('llm-provider').value);
+    $('llm-availability').textContent = enabled ? (provider?.detail || 'A disponibilidade do provedor será verificada no servidor.') : 'Modo extrativo selecionado explicitamente, sem uso de LLM.';
+    $('llm-custom-choice').hidden = $('llm-model').value !== '__custom__';
+  }
+  function renderLLMOptions() {
+    const provider = $('llm-provider').value;
+    const previous = $('llm-model').value;
+    const entry = state.llms?.providers?.find(row => row.provider === provider);
+    const fallback = provider === 'openai' ? [{id:'gpt-6-luna',label:'GPT-6 Luna'},{id:'gpt-6.1-sol',label:'GPT-6.1 Sol'},{id:'gpt-6-astra',label:'GPT-6 Astra'}] : [];
+    const models = list(entry?.models || fallback);
+    $('llm-model').replaceChildren();
+    models.forEach(model => $('llm-model').add(new Option(model.label || model.id,model.id)));
+    $('llm-model').add(new Option('Outro modelo…','__custom__'));
+    if (models.some(model => model.id === previous) || previous === '__custom__') $('llm-model').value = previous;
+    $('llm-model-choice').hidden = models.length === 0;
+    updateLLMFields();
+  }
+  async function refreshLLMs() {
+    if (state.llmsLoading) return;
+    state.llmsLoading = true;
+    try { state.llms = await request('/api/llms'); renderLLMOptions(); }
+    catch(error) { $('llm-availability').textContent = 'Não foi possível verificar o provedor: ' + error.message; }
+    finally { state.llmsLoading = false; }
+  }
+  function readLLM() {
+    if (!$('llm-enabled').checked) return {provider:'extractive'};
+    const model = ($('llm-model').value === '__custom__' ? $('llm-custom-model').value : $('llm-model').value).trim();
+    if (!model) throw new Error('Informe o nome do modelo de linguagem para preparar o conteúdo ou escolha o modo extrativo sem LLM.');
+    return {provider:$('llm-provider').value,model};
+  }
   function readMetadata() {
     let extra = {}; const raw = $('meta-extra').value.trim();
     if (raw) { try { extra = JSON.parse(raw); } catch { throw new Error('Os metadados adicionais precisam ser um objeto JSON válido.'); } }
@@ -241,10 +277,11 @@
   function captureIngestion() {
     const sources = $('sources').value.split(/\r?\n/).map(value => value.trim()).filter(Boolean);
     if (!sources.length && !state.selectedFiles.length) throw new Error('Informe ao menos um caminho, URL ou arquivo para pré-processar.');
-    return {sources, metadata:readMetadata(), files:[...state.selectedFiles]};
+    return {sources, metadata:readMetadata(), llm:readLLM(), files:[...state.selectedFiles]};
   }
   function ingestBody(snapshot, commit) {
     const form = new FormData(); form.set('sources', JSON.stringify(snapshot.sources)); form.set('metadata', JSON.stringify(snapshot.metadata)); form.set('commit', String(commit));
+    form.set('llm',JSON.stringify(snapshot.llm));
     snapshot.files.forEach(file => form.append('files', file, file.name));
     if (commit && state.preview?.preview_id) form.set('preview_id', state.preview.preview_id);
     return form;
@@ -355,9 +392,90 @@
       if ($('endpoint').value.trim()) body.endpoint = $('endpoint').value.trim();
       const result = await request('/api/profiles',{method:'POST',body});
       state.config.profile_id = result.perfil_id || result.profile?.perfil_id || state.config.profile_id;
-      await refreshStatus({quiet:true}); message('Perfil cadastrado. O modelo deve estar disponível no serviço para geração e consulta.', 'success');
+      await refreshStatus({quiet:true}); selectModelProfile(state.config.profile_id);
+      await refreshModels(); message('Perfil cadastrado. O modelo deve estar disponível no serviço para geração e consulta.', 'success');
     } catch(error) { message(error.message,'error'); }
     finally { button.disabled = false; }
+  }
+  function modelKey(row) { return row.provedor + '/' + row.modelo; }
+  function modelProfiles(row) {
+    const ids = list(row.profile_ids);
+    return list(state.status?.profiles).filter(profile => ids.includes(profile.perfil_id));
+  }
+  function selectModelProfile(id) {
+    if (!id) return;
+    state.config.profile_id = id;
+    document.querySelectorAll('.profile-select').forEach(select => select.value = id);
+    $('lab-state').textContent = 'Perfil selecionado para geração e para a próxima consulta.';
+  }
+  function renderModels() {
+    $('local-models').replaceChildren(); $('api-models').replaceChildren();
+    const names = {'bge-m3':'BGE-M3','embeddinggemma:300m-qat-q4_0':'EmbeddingGemma 300M · Q4','intfloat/multilingual-e5-small':'Multilingual E5 Small','sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2':'Multilingual MiniLM · L12'};
+    list(state.models).forEach(row => {
+      const local = ['ollama','sentence_transformers'].includes(row.provedor);
+      const profiles = modelProfiles(row);
+      const profile = profiles.find(item => item.perfil_id === state.config.profile_id) || profiles.find(item => item.dimensoes === row.dimensoes) || profiles[0];
+      const busy = state.modelBusy?.has(modelKey(row));
+      const card = document.createElement('article'); card.className = 'model-card';
+      const heading = document.createElement('div'); heading.className = 'model-card-heading';
+      const title = document.createElement('h4'); title.textContent = names[row.modelo.replace(/:latest$/,'')] || row.modelo;
+      const badge = document.createElement('span'); badge.className = 'pill ' + (row.disponivel ? '' : 'subtle');
+      badge.textContent = row.disponivel ? (local ? 'INSTALADO' : 'API CONFIGURADA') : (local ? 'INDISPONÍVEL' : 'SEM CREDENCIAL');
+      heading.append(title,badge); card.append(heading);
+      const identifier = document.createElement('p'); identifier.className = 'model-identifier'; identifier.textContent = row.modelo; card.append(identifier);
+      const description = document.createElement('p'); description.className = 'model-description'; description.textContent = row.descricao || ''; card.append(description);
+      const dimensions = document.createElement('p'); dimensions.className = 'model-dimensions';
+      dimensions.textContent = [row.dimensoes ? row.dimensoes + ' dimensões' : 'Dimensão a verificar',row.dimensoes_nativas && row.dimensoes_nativas !== row.dimensoes ? 'nativa: ' + row.dimensoes_nativas : '',row.provedor,profiles.length ? profiles.length + ' perfil cadastrado' + (profiles.length > 1 ? 's' : '') : ''].filter(Boolean).join(' · '); card.append(dimensions);
+      const availability = document.createElement('p'); availability.className = 'field-help'; availability.textContent = row.detalhe || ''; card.append(availability);
+      const actions = document.createElement('div'); actions.className = 'model-actions';
+      const primary = document.createElement('button'); primary.type = 'button'; primary.className = 'button secondary small';
+      primary.disabled = Boolean(busy);
+      if (!row.disponivel) {
+        primary.textContent = local ? 'Ver orientação' : 'Como configurar a API';
+        primary.addEventListener('click',() => message(local ? 'Este modelo ainda não está disponível no servidor de processamento. A instalação precisa ser concluída no servidor antes de cadastrar e gerar embeddings.' : 'Configure a credencial de ' + row.provedor + ' no servidor de processamento e clique em Verificar disponibilidade. A consulta do catálogo não chama o serviço de embeddings.', 'warning','models-message'));
+      } else if (profile) {
+        primary.textContent = profile.perfil_id === state.config.profile_id ? 'Perfil selecionado ✓' : 'Usar perfil';
+        primary.addEventListener('click',() => {selectModelProfile(profile.perfil_id);renderModels();message('Perfil selecionado. As categorias e os parâmetros do laboratório foram preservados.','success','models-message');});
+      } else {
+        primary.textContent = busy ? 'Cadastrando…' : 'Cadastrar perfil';
+        primary.addEventListener('click',() => registerCatalogModel(row));
+      }
+      actions.append(primary);
+      if (local && row.disponivel && profile) {
+        const test = document.createElement('button'); test.type = 'button'; test.className = 'text-button'; test.disabled = Boolean(busy); test.textContent = busy ? 'Verificando…' : 'Testar modelo';
+        test.setAttribute('aria-label','Testar modelo ' + title.textContent); test.addEventListener('click',() => testCatalogModel(row,profile.perfil_id)); actions.append(test);
+      }
+      card.append(actions); $(local ? 'local-models' : 'api-models').append(card);
+    });
+    if (!$('local-models').children.length) $('local-models').innerHTML = '<p class="empty-inline">Nenhum modelo local encontrado no catálogo.</p>';
+  }
+  async function refreshModels() {
+    if (state.modelsLoading) return;
+    state.modelsLoading = true; $('refresh-models').disabled = true;
+    try { const data = await request('/api/models'); state.models = list(data.models); renderModels(); }
+    catch(error) { message(error.message,'error','models-message'); if (!state.models) $('local-models').innerHTML = '<p class="empty-inline">Não foi possível verificar os modelos. Confira a conexão e tente novamente.</p>'; }
+    finally { state.modelsLoading = false; $('refresh-models').disabled = false; }
+  }
+  async function registerCatalogModel(row) {
+    state.modelBusy ||= new Set(); state.modelBusy.add(modelKey(row)); renderModels();
+    message('Validando a instalação e cadastrando o perfil…','','models-message');
+    try {
+      const profile = await request('/api/profiles',{method:'POST',body:{provider:row.provedor,model:row.modelo,dimensions:row.dimensoes}});
+      state.config.profile_id = profile.perfil_id;
+      await refreshStatus({quiet:true}); selectModelProfile(profile.perfil_id); await refreshModels();
+      message('Perfil cadastrado e selecionado. Você já pode gerar embeddings das categorias desejadas.','success','models-message');
+    } catch(error) { message(error.message,'error','models-message'); }
+    finally { state.modelBusy.delete(modelKey(row)); renderModels(); }
+  }
+  async function testCatalogModel(row,profileId) {
+    state.modelBusy ||= new Set(); state.modelBusy.add(modelKey(row)); renderModels();
+    message('Testando duas entradas sintéticas no modelo local…','','models-message');
+    try {
+      const result = await request('/api/models/check',{method:'POST',body:{profile_id:profileId},progress:text => message(text,'','models-message')});
+      if (result.finite !== true || result.quantity !== 2) throw new Error('O serviço não confirmou a integridade dos dois embeddings de teste.');
+      message('Teste concluído: ' + result.quantity + ' vetores de ' + result.dimensions + ' dimensões, coordenadas finitas. Normas: consulta ' + number(result.norms?.consulta) + ', documento ' + number(result.norms?.documento) + '. Tempo: ' + new Intl.NumberFormat('pt-BR',{maximumFractionDigits:0}).format(result.latency_ms) + ' ms. A base foi preservada.','success','models-message');
+    } catch(error) { message(error.message,'error','models-message'); }
+    finally { state.modelBusy.delete(modelKey(row)); renderModels(); }
   }
   function date(value) { const time = new Date(value); return Number.isNaN(time.getTime()) ? String(value || '') : time.toLocaleString('pt-BR'); }
   async function refreshHistory() {
@@ -410,7 +528,10 @@
     event.preventDefault(); const raw = $('backend-url').value.trim().replace(/\/+$/,'');
     if (raw) { const url = new URL(raw); if (!['https:','http:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) { message('Informe uma URL HTTP ou HTTPS, sem credenciais, parâmetros ou fragmentos.', 'error'); return; } }
     backend = raw; token = $('access-token').value.trim(); session.set('autorag_backend',backend); session.set('autorag_token',token);
+    state.models = null; state.llms = null;
     $('settings-dialog').close(); refreshStatus();
+    if (state.activePage === 'laboratorio') refreshModels();
+    if (state.activePage === 'preparar') refreshLLMs();
   }
   document.querySelectorAll('[data-page]').forEach(button => button.addEventListener('click',() => navigate(button.dataset.page)));
   document.querySelectorAll('[data-goto]').forEach(button => button.addEventListener('click',() => navigate(button.dataset.goto)));
@@ -424,6 +545,11 @@
   ['dragleave','drop'].forEach(name => zone.addEventListener(name,event => {event.preventDefault();zone.classList.remove('dragging');}));
   zone.addEventListener('drop',event => {state.selectedFiles.push(...event.dataTransfer.files);renderFiles();invalidatePreview();});
   $('generate-form').addEventListener('submit',generate); $('profile-form').addEventListener('submit',registerProfile); $('refresh-history').addEventListener('click',refreshHistory);
+  $('refresh-models').addEventListener('click',refreshModels);
+  $('llm-enabled').addEventListener('change',() => {updateLLMFields();invalidatePreview();});
+  $('llm-provider').addEventListener('change',() => {renderLLMOptions();invalidatePreview();});
+  $('llm-model').addEventListener('change',() => {updateLLMFields();invalidatePreview();});
+  $('llm-custom-model').addEventListener('input',invalidatePreview);
   $('open-settings').addEventListener('click',settings); $('close-settings').addEventListener('click',() => $('settings-dialog').close()); $('settings-form').addEventListener('submit',saveSettings);
   $('clear-token').addEventListener('click',() => {$('access-token').value = '';});
   $('close-experiment').addEventListener('click',() => $('experiment-dialog').close());

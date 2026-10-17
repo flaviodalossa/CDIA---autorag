@@ -20,7 +20,7 @@ def source_files():
             yield path
     cloudflare = APP/'cloudflare'
     if cloudflare.is_dir():
-        config_names = {'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'tsconfig.json', 'wrangler.jsonc', 'Dockerfile', '.gitignore'}
+        config_names = {'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'tsconfig.json', 'wrangler.jsonc', 'Dockerfile', '.gitignore', 'models.lock.json'}
         for path in cloudflare.iterdir():
             if path.is_file() and (path.name in config_names or path.suffix in {'.py', '.md', '.ts', '.mjs'}):
                 yield path

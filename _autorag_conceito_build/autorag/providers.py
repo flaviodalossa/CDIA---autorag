@@ -200,12 +200,30 @@ class OllamaProvider(Provider):
             raise ValueError("Modelo Ollama ausente ou versão alterada. Cadastre um novo perfil para o digest atual.")
 
     def embed(self, texts, role="documento"):
-        payload = {"model": self.profile["modelo"], "input": [self.prepare(t, role) for t in texts],
-                   "truncate": False, "keep_alive": "5m"}
-        # Redução Matryoshka explícita: original completo também pode ser preservado.
-        result = http_json(self.profile["endpoint"] + "/api/embed", payload)
-        values = np.asarray(result.get("embeddings"), dtype=np.float64)
-        return self._dimension(values, len(texts))
+        raw_batch = os.getenv("AUTORAG_OLLAMA_INPUT_BATCH", "0")
+        if not raw_batch.isdigit() or int(raw_batch) > 8192:
+            raise ValueError("AUTORAG_OLLAMA_INPUT_BATCH deve ser um inteiro entre 0 e 8192.")
+        batch_size = int(raw_batch) or max(1, len(texts))
+        keep_alive = os.getenv("AUTORAG_OLLAMA_KEEP_ALIVE", "5m")
+        keep_alive = 0 if keep_alive == "0" else keep_alive
+        raw_threads = os.getenv("AUTORAG_OLLAMA_NUM_THREAD", "")
+        if raw_threads and (not raw_threads.isdigit() or not 1 <= int(raw_threads) <= 256):
+            raise ValueError("AUTORAG_OLLAMA_NUM_THREAD deve ser um inteiro entre 1 e 256.")
+        chunks = []
+        for start in range(0, len(texts), batch_size):
+            batch = texts[start:start + batch_size]
+            # Keep weights loaded between small CPU batches, then release before UMAP.
+            final = start + batch_size >= len(texts)
+            payload = {"model": self.profile["modelo"],
+                       "input": [self.prepare(t, role) for t in batch], "truncate": False,
+                       "keep_alive": keep_alive if final else "5m"}
+            if raw_threads:
+                payload["options"] = {"num_thread": int(raw_threads)}
+            result = http_json(self.profile["endpoint"] + "/api/embed", payload)
+            values = np.asarray(result.get("embeddings"), dtype=np.float64)
+            # Preserve the existing explicit Matryoshka reduction and input ordering.
+            chunks.append(self._dimension(values, len(batch)))
+        return np.concatenate(chunks) if chunks else np.empty((0, self.profile["dimensoes"]))
 
     def _dimension(self, values, count):
         expected = self.profile["dimensoes"]

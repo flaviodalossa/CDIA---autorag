@@ -11,6 +11,9 @@ interface Env {
   api_token_autorag?: string;
   OPENAI_API_KEY?: string;
   GEMINI_API_KEY?: string;
+  AUTORAG_LLM_BASE_URL?: string;
+  AUTORAG_LLM_OLLAMA_BASE_URL?: string;
+  AUTORAG_LLM_API_KEY?: string;
 }
 
 const security = {
@@ -32,6 +35,9 @@ export class AutoRAGContainer extends Container<Env> {
     AUTORAG_API_TOKEN: resolveApiToken(this.env),
     OPENAI_API_KEY: this.env.OPENAI_API_KEY || '',
     GEMINI_API_KEY: this.env.GEMINI_API_KEY || '',
+    AUTORAG_LLM_BASE_URL: this.env.AUTORAG_LLM_BASE_URL || '',
+    AUTORAG_LLM_OLLAMA_BASE_URL: this.env.AUTORAG_LLM_OLLAMA_BASE_URL || 'http://127.0.0.1:11434',
+    AUTORAG_LLM_API_KEY: this.env.AUTORAG_LLM_API_KEY || '',
   };
 
   private activeRequests = 0;
