@@ -21,7 +21,9 @@ COPY cloudflare/*.py ./cloudflare/
 COPY cloudflare/models.lock.json ./cloudflare/
 COPY --from=model-assets /opt/ollama-cpu/bin/ollama /usr/bin/ollama
 COPY --from=model-assets /opt/ollama-cpu/lib/ollama /usr/lib/ollama
-COPY --from=model-assets /opt/models/ollama /opt/models/ollama
+# Ollama migrates registry metadata into manifests-v2 at runtime. Set ownership
+# while copying the assets so this does not duplicate the 1.4 GB weight layer.
+COPY --from=model-assets --chown=10001:10001 /opt/models/ollama /opt/models/ollama
 RUN useradd --create-home --uid 10001 autorag && mkdir /data && chown autorag:autorag /data
 USER autorag
 EXPOSE 8000
