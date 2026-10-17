@@ -224,7 +224,7 @@
           if (row.fusion_score != null || row.rrf_score != null) card = card.replace(/Distância <b>[^<]*<\/b>/, 'Fusão RRF <b>' + number(row.fusion_score ?? row.rrf_score) + '</b>');
           const evidence = row.model_evidence || row.evidence || row.evidences || row.spaces || [];
           return card + analysisMarkup(row.analysis) + (evidence.length ? '<details class="evidence-detail"><summary>Pontuações por modelo</summary><pre>' + esc(JSON.stringify(evidence,null,2)) + '</pre></details>' : '');
-        }).join('') : '<p class="empty-inline">' + (error ? 'Os outros experimentos continuam disponíveis.' : 'Nenhum tópico atende a esta configuração e aos limites informados.') + '</p>') + '</div><details class="experiment-parameters"><summary>Parâmetros e reprodução</summary><pre>' + esc(JSON.stringify(params,null,2)) + '</pre><p class="field-help">As revisões dos perfis e índices utilizados acompanham os arquivos exportados.</p></details><div data-comparison-visual="' + index + '"></div>' + (experiment.baseline_results?.length && config.mode !== 'vector' ? '<details class="baseline-detail"><summary>Comparar com o conteúdo original</summary>' + experiment.baseline_results.map((row,i) => resultCard(row,i,false)).join('') + '</details>' : '') + '</section>';
+        }).join('') : '<p class="empty-inline">' + (error ? 'Os outros experimentos continuam disponíveis.' : 'Nenhum tópico atende a esta configuração e aos limites informados.') + '</p>') + '</div><details class="experiment-parameters"><summary>Parâmetros e reprodução</summary><pre>' + esc(JSON.stringify(params,null,2)) + '</pre><p class="field-help">As revisões dos perfis e índices utilizados acompanham os arquivos exportados.</p></details><div data-comparison-visual="' + index + '"></div>' + (experiment.baseline_results?.length && (config.mode !== 'vector' || (config.categories || []).some(category => category !== 'conteudo_fonte')) ? '<details class="baseline-detail"><summary>Comparar com o conteúdo original</summary>' + experiment.baseline_results.map((row,i) => resultCard(row,i,false)).join('') + '</details>' : '') + '</section>';
       }).join('') + '</div>';
       records.forEach((experiment,index) => (experiment.spaces || []).forEach(space => {
         const host = node.querySelector('[data-comparison-visual="' + index + '"]');
@@ -279,7 +279,7 @@
       const edit = event.target.closest('[data-edit-experiment]'); const remove = event.target.closest('[data-remove-experiment]');
       try {
         if (edit) { if (ui.editing >= 0) ui.drafts[ui.editing] = readEditor(); const index = Number(edit.dataset.editExperiment); writeEditor(ui.drafts[index],index); $('experiment-name').focus(); }
-        if (remove) { const index = Number(remove.dataset.removeExperiment); ui.drafts.splice(index,1); ui.loaded = true; if (ui.drafts.length) writeEditor(ui.drafts[Math.min(index,ui.drafts.length - 1)],Math.min(index,ui.drafts.length - 1)); else {ui.editing = -1;renderSlots();} }
+        if (remove) { const index = Number(remove.dataset.removeExperiment); const previous = ui.editing; if (previous >= 0 && previous !== index) ui.drafts[previous] = readEditor(); ui.drafts.splice(index,1); ui.loaded = true; ui.dirty = true; if (ui.drafts.length) { const next = previous === index ? Math.min(index,ui.drafts.length - 1) : previous - (index < previous ? 1 : 0); writeEditor(ui.drafts[next],next); } else {ui.editing = -1;renderSlots();} }
       } catch(error) { inform(error.message,'warning'); }
     });
     $('save-config').addEventListener('click',savePreset);

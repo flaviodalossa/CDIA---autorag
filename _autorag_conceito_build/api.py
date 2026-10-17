@@ -324,7 +324,7 @@ class AnalysisRequest(BaseModel):
 
 class ExperimentBundleRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    name: str = Field(min_length=1, max_length=120)
+    name: str = Field(min_length=1, max_length=160)
     experiments: list[dict] = Field(min_length=1, max_length=3)
     analysis: AnalysisRequest = Field(default_factory=AnalysisRequest)
     active: bool = Field(default=False, strict=True)
