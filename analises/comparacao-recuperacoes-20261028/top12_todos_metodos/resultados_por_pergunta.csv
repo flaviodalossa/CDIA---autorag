@@ -1,0 +1,121 @@
+﻿metodo_id;perfil;metodo;pergunta;selecionados;uteis;nao_uteis;precision_at_12;acertos_julgados;erros_julgados;acuracia_julgados
+original256D__baseline;original256D;Cosseno;nova_01;12;5;7;0.4166666666666667;45;41;0.5232558139534884
+original256D__baseline;original256D;Cosseno;nova_02;12;8;4;0.6666666666666666;54;11;0.8307692307692308
+original256D__baseline;original256D;Cosseno;nova_03;12;3;9;0.25;75;19;0.7978723404255319
+original256D__baseline;original256D;Cosseno;nova_04;12;2;10;0.16666666666666666;50;28;0.6410256410256411
+original256D__baseline;original256D;Cosseno;nova_05;12;3;9;0.25;64;22;0.7441860465116279
+original256D__baseline;original256D;Cosseno;nova_06;12;8;4;0.6666666666666666;62;12;0.8378378378378378
+original256D__baseline;original256D;Cosseno;nova_07;12;3;9;0.25;64;11;0.8533333333333334
+original256D__baseline;original256D;Cosseno;nova_08;12;10;2;0.8333333333333334;37;34;0.5211267605633803
+original256D__baseline;original256D;Cosseno;nova_09;12;5;7;0.4166666666666667;48;16;0.75
+original256D__baseline;original256D;Cosseno;nova_10;12;5;7;0.4166666666666667;65;15;0.8125
+original256D__ridge__probabilidade;original256D;Ridge;nova_01;12;8;4;0.6666666666666666;51;35;0.5930232558139535
+original256D__ridge__probabilidade;original256D;Ridge;nova_02;12;6;6;0.5;50;15;0.7692307692307693
+original256D__ridge__probabilidade;original256D;Ridge;nova_03;12;1;11;0.08333333333333333;71;23;0.7553191489361702
+original256D__ridge__probabilidade;original256D;Ridge;nova_04;12;4;8;0.3333333333333333;54;24;0.6923076923076923
+original256D__ridge__probabilidade;original256D;Ridge;nova_05;12;2;10;0.16666666666666666;62;24;0.7209302325581395
+original256D__ridge__probabilidade;original256D;Ridge;nova_06;12;3;9;0.25;52;22;0.7027027027027027
+original256D__ridge__probabilidade;original256D;Ridge;nova_07;12;2;10;0.16666666666666666;62;13;0.8266666666666667
+original256D__ridge__probabilidade;original256D;Ridge;nova_08;12;10;2;0.8333333333333334;37;34;0.5211267605633803
+original256D__ridge__probabilidade;original256D;Ridge;nova_09;12;7;5;0.5833333333333334;52;12;0.8125
+original256D__ridge__probabilidade;original256D;Ridge;nova_10;12;2;10;0.16666666666666666;59;21;0.7375
+original256D__lasso__probabilidade;original256D;LASSO;nova_01;12;6;6;0.5;47;39;0.5465116279069767
+original256D__lasso__probabilidade;original256D;LASSO;nova_02;12;5;7;0.4166666666666667;48;17;0.7384615384615385
+original256D__lasso__probabilidade;original256D;LASSO;nova_03;12;3;9;0.25;75;19;0.7978723404255319
+original256D__lasso__probabilidade;original256D;LASSO;nova_04;12;3;9;0.25;52;26;0.6666666666666666
+original256D__lasso__probabilidade;original256D;LASSO;nova_05;12;2;10;0.16666666666666666;62;24;0.7209302325581395
+original256D__lasso__probabilidade;original256D;LASSO;nova_06;12;3;9;0.25;52;22;0.7027027027027027
+original256D__lasso__probabilidade;original256D;LASSO;nova_07;12;1;11;0.08333333333333333;60;15;0.8
+original256D__lasso__probabilidade;original256D;LASSO;nova_08;12;7;5;0.5833333333333334;31;40;0.43661971830985913
+original256D__lasso__probabilidade;original256D;LASSO;nova_09;12;8;4;0.6666666666666666;54;10;0.84375
+original256D__lasso__probabilidade;original256D;LASSO;nova_10;12;3;9;0.25;61;19;0.7625
+original256D__pvalor__probabilidade;original256D;Logística por p-valor;nova_01;12;7;5;0.5833333333333334;49;37;0.5697674418604651
+original256D__pvalor__probabilidade;original256D;Logística por p-valor;nova_02;12;2;10;0.16666666666666666;42;23;0.6461538461538462
+original256D__pvalor__probabilidade;original256D;Logística por p-valor;nova_03;12;0;12;0.0;69;25;0.7340425531914894
+original256D__pvalor__probabilidade;original256D;Logística por p-valor;nova_04;12;6;6;0.5;58;20;0.7435897435897436
+original256D__pvalor__probabilidade;original256D;Logística por p-valor;nova_05;12;0;12;0.0;58;28;0.6744186046511628
+original256D__pvalor__probabilidade;original256D;Logística por p-valor;nova_06;12;1;11;0.08333333333333333;48;26;0.6486486486486487
+original256D__pvalor__probabilidade;original256D;Logística por p-valor;nova_07;12;2;10;0.16666666666666666;62;13;0.8266666666666667
+original256D__pvalor__probabilidade;original256D;Logística por p-valor;nova_08;12;6;6;0.5;29;42;0.4084507042253521
+original256D__pvalor__probabilidade;original256D;Logística por p-valor;nova_09;12;2;10;0.16666666666666666;42;22;0.65625
+original256D__pvalor__probabilidade;original256D;Logística por p-valor;nova_10;12;0;12;0.0;55;25;0.6875
+multivetorial__baseline;multivetorial;Cosseno;nova_01;12;8;4;0.6666666666666666;51;35;0.5930232558139535
+multivetorial__baseline;multivetorial;Cosseno;nova_02;12;6;6;0.5;50;15;0.7692307692307693
+multivetorial__baseline;multivetorial;Cosseno;nova_03;12;3;9;0.25;75;19;0.7978723404255319
+multivetorial__baseline;multivetorial;Cosseno;nova_04;12;5;7;0.4166666666666667;56;22;0.717948717948718
+multivetorial__baseline;multivetorial;Cosseno;nova_05;12;2;10;0.16666666666666666;62;24;0.7209302325581395
+multivetorial__baseline;multivetorial;Cosseno;nova_06;12;8;4;0.6666666666666666;62;12;0.8378378378378378
+multivetorial__baseline;multivetorial;Cosseno;nova_07;12;3;9;0.25;64;11;0.8533333333333334
+multivetorial__baseline;multivetorial;Cosseno;nova_08;12;8;4;0.6666666666666666;33;38;0.4647887323943662
+multivetorial__baseline;multivetorial;Cosseno;nova_09;12;5;7;0.4166666666666667;48;16;0.75
+multivetorial__baseline;multivetorial;Cosseno;nova_10;12;5;7;0.4166666666666667;65;15;0.8125
+multivetorial__ridge__probabilidade;multivetorial;Ridge;nova_01;12;7;5;0.5833333333333334;49;37;0.5697674418604651
+multivetorial__ridge__probabilidade;multivetorial;Ridge;nova_02;12;7;5;0.5833333333333334;52;13;0.8
+multivetorial__ridge__probabilidade;multivetorial;Ridge;nova_03;12;2;10;0.16666666666666666;73;21;0.776595744680851
+multivetorial__ridge__probabilidade;multivetorial;Ridge;nova_04;12;2;10;0.16666666666666666;50;28;0.6410256410256411
+multivetorial__ridge__probabilidade;multivetorial;Ridge;nova_05;12;2;10;0.16666666666666666;62;24;0.7209302325581395
+multivetorial__ridge__probabilidade;multivetorial;Ridge;nova_06;12;3;9;0.25;52;22;0.7027027027027027
+multivetorial__ridge__probabilidade;multivetorial;Ridge;nova_07;12;2;10;0.16666666666666666;62;13;0.8266666666666667
+multivetorial__ridge__probabilidade;multivetorial;Ridge;nova_08;12;9;3;0.75;35;36;0.49295774647887325
+multivetorial__ridge__probabilidade;multivetorial;Ridge;nova_09;12;7;5;0.5833333333333334;52;12;0.8125
+multivetorial__ridge__probabilidade;multivetorial;Ridge;nova_10;12;3;9;0.25;61;19;0.7625
+multivetorial__lasso__probabilidade;multivetorial;LASSO;nova_01;12;6;6;0.5;47;39;0.5465116279069767
+multivetorial__lasso__probabilidade;multivetorial;LASSO;nova_02;12;2;10;0.16666666666666666;42;23;0.6461538461538462
+multivetorial__lasso__probabilidade;multivetorial;LASSO;nova_03;12;2;10;0.16666666666666666;73;21;0.776595744680851
+multivetorial__lasso__probabilidade;multivetorial;LASSO;nova_04;12;2;10;0.16666666666666666;50;28;0.6410256410256411
+multivetorial__lasso__probabilidade;multivetorial;LASSO;nova_05;12;4;8;0.3333333333333333;66;20;0.7674418604651163
+multivetorial__lasso__probabilidade;multivetorial;LASSO;nova_06;12;1;11;0.08333333333333333;48;26;0.6486486486486487
+multivetorial__lasso__probabilidade;multivetorial;LASSO;nova_07;12;2;10;0.16666666666666666;62;13;0.8266666666666667
+multivetorial__lasso__probabilidade;multivetorial;LASSO;nova_08;12;9;3;0.75;35;36;0.49295774647887325
+multivetorial__lasso__probabilidade;multivetorial;LASSO;nova_09;12;5;7;0.4166666666666667;48;16;0.75
+multivetorial__lasso__probabilidade;multivetorial;LASSO;nova_10;12;1;11;0.08333333333333333;57;23;0.7125
+multivetorial__pvalor__probabilidade;multivetorial;Logística por p-valor;nova_01;12;4;8;0.3333333333333333;43;43;0.5
+multivetorial__pvalor__probabilidade;multivetorial;Logística por p-valor;nova_02;12;3;9;0.25;44;21;0.676923076923077
+multivetorial__pvalor__probabilidade;multivetorial;Logística por p-valor;nova_03;12;0;12;0.0;69;25;0.7340425531914894
+multivetorial__pvalor__probabilidade;multivetorial;Logística por p-valor;nova_04;12;3;9;0.25;52;26;0.6666666666666666
+multivetorial__pvalor__probabilidade;multivetorial;Logística por p-valor;nova_05;12;1;11;0.08333333333333333;60;26;0.6976744186046512
+multivetorial__pvalor__probabilidade;multivetorial;Logística por p-valor;nova_06;12;2;10;0.16666666666666666;50;24;0.6756756756756757
+multivetorial__pvalor__probabilidade;multivetorial;Logística por p-valor;nova_07;12;1;11;0.08333333333333333;60;15;0.8
+multivetorial__pvalor__probabilidade;multivetorial;Logística por p-valor;nova_08;12;5;7;0.4166666666666667;27;44;0.38028169014084506
+multivetorial__pvalor__probabilidade;multivetorial;Logística por p-valor;nova_09;12;8;4;0.6666666666666666;54;10;0.84375
+multivetorial__pvalor__probabilidade;multivetorial;Logística por p-valor;nova_10;12;2;10;0.16666666666666666;59;21;0.7375
+perfil192D__baseline;perfil192D;Cosseno;nova_01;12;6;6;0.5;47;39;0.5465116279069767
+perfil192D__baseline;perfil192D;Cosseno;nova_02;12;6;6;0.5;50;15;0.7692307692307693
+perfil192D__baseline;perfil192D;Cosseno;nova_03;12;2;10;0.16666666666666666;73;21;0.776595744680851
+perfil192D__baseline;perfil192D;Cosseno;nova_04;12;3;9;0.25;52;26;0.6666666666666666
+perfil192D__baseline;perfil192D;Cosseno;nova_05;12;2;10;0.16666666666666666;62;24;0.7209302325581395
+perfil192D__baseline;perfil192D;Cosseno;nova_06;12;5;7;0.4166666666666667;56;18;0.7567567567567568
+perfil192D__baseline;perfil192D;Cosseno;nova_07;12;2;10;0.16666666666666666;62;13;0.8266666666666667
+perfil192D__baseline;perfil192D;Cosseno;nova_08;12;10;2;0.8333333333333334;37;34;0.5211267605633803
+perfil192D__baseline;perfil192D;Cosseno;nova_09;12;5;7;0.4166666666666667;48;16;0.75
+perfil192D__baseline;perfil192D;Cosseno;nova_10;12;5;7;0.4166666666666667;65;15;0.8125
+perfil192D__ridge__probabilidade;perfil192D;Ridge;nova_01;12;7;5;0.5833333333333334;49;37;0.5697674418604651
+perfil192D__ridge__probabilidade;perfil192D;Ridge;nova_02;12;6;6;0.5;50;15;0.7692307692307693
+perfil192D__ridge__probabilidade;perfil192D;Ridge;nova_03;12;2;10;0.16666666666666666;73;21;0.776595744680851
+perfil192D__ridge__probabilidade;perfil192D;Ridge;nova_04;12;3;9;0.25;52;26;0.6666666666666666
+perfil192D__ridge__probabilidade;perfil192D;Ridge;nova_05;12;2;10;0.16666666666666666;62;24;0.7209302325581395
+perfil192D__ridge__probabilidade;perfil192D;Ridge;nova_06;12;3;9;0.25;52;22;0.7027027027027027
+perfil192D__ridge__probabilidade;perfil192D;Ridge;nova_07;12;2;10;0.16666666666666666;62;13;0.8266666666666667
+perfil192D__ridge__probabilidade;perfil192D;Ridge;nova_08;12;9;3;0.75;35;36;0.49295774647887325
+perfil192D__ridge__probabilidade;perfil192D;Ridge;nova_09;12;6;6;0.5;50;14;0.78125
+perfil192D__ridge__probabilidade;perfil192D;Ridge;nova_10;12;3;9;0.25;61;19;0.7625
+perfil192D__lasso__probabilidade;perfil192D;LASSO;nova_01;12;5;7;0.4166666666666667;45;41;0.5232558139534884
+perfil192D__lasso__probabilidade;perfil192D;LASSO;nova_02;12;3;9;0.25;44;21;0.676923076923077
+perfil192D__lasso__probabilidade;perfil192D;LASSO;nova_03;12;2;10;0.16666666666666666;73;21;0.776595744680851
+perfil192D__lasso__probabilidade;perfil192D;LASSO;nova_04;12;4;8;0.3333333333333333;54;24;0.6923076923076923
+perfil192D__lasso__probabilidade;perfil192D;LASSO;nova_05;12;1;11;0.08333333333333333;60;26;0.6976744186046512
+perfil192D__lasso__probabilidade;perfil192D;LASSO;nova_06;12;4;8;0.3333333333333333;54;20;0.7297297297297297
+perfil192D__lasso__probabilidade;perfil192D;LASSO;nova_07;12;2;10;0.16666666666666666;62;13;0.8266666666666667
+perfil192D__lasso__probabilidade;perfil192D;LASSO;nova_08;12;9;3;0.75;35;36;0.49295774647887325
+perfil192D__lasso__probabilidade;perfil192D;LASSO;nova_09;12;7;5;0.5833333333333334;52;12;0.8125
+perfil192D__lasso__probabilidade;perfil192D;LASSO;nova_10;12;3;9;0.25;61;19;0.7625
+perfil192D__pvalor__probabilidade;perfil192D;Logística por p-valor;nova_01;12;6;6;0.5;47;39;0.5465116279069767
+perfil192D__pvalor__probabilidade;perfil192D;Logística por p-valor;nova_02;12;5;7;0.4166666666666667;48;17;0.7384615384615385
+perfil192D__pvalor__probabilidade;perfil192D;Logística por p-valor;nova_03;12;0;12;0.0;69;25;0.7340425531914894
+perfil192D__pvalor__probabilidade;perfil192D;Logística por p-valor;nova_04;12;4;8;0.3333333333333333;54;24;0.6923076923076923
+perfil192D__pvalor__probabilidade;perfil192D;Logística por p-valor;nova_05;12;1;11;0.08333333333333333;60;26;0.6976744186046512
+perfil192D__pvalor__probabilidade;perfil192D;Logística por p-valor;nova_06;12;2;10;0.16666666666666666;50;24;0.6756756756756757
+perfil192D__pvalor__probabilidade;perfil192D;Logística por p-valor;nova_07;12;1;11;0.08333333333333333;60;15;0.8
+perfil192D__pvalor__probabilidade;perfil192D;Logística por p-valor;nova_08;12;6;6;0.5;29;42;0.4084507042253521
+perfil192D__pvalor__probabilidade;perfil192D;Logística por p-valor;nova_09;12;5;7;0.4166666666666667;48;16;0.75
+perfil192D__pvalor__probabilidade;perfil192D;Logística por p-valor;nova_10;12;0;12;0.0;55;25;0.6875

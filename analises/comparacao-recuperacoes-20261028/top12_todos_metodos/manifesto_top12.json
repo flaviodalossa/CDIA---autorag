@@ -1,0 +1,22 @@
+{
+  "version": "mesmo_orcamento_top12_todos_metodos.v1",
+  "frozen_at": "2026-10-28T16:50:00.340072+00:00",
+  "code_sha256": "506529645bce996c008842ddba7b26f98c0a0b3ddaef1eb294cb7eebc1f58816",
+  "parent_freeze_sha256": "630cee38b5521807728de81a62fc3afa9b7c8a56c0c6f73d8478870b915a3f50",
+  "rankings_sha256": "2a0099458569a5faf275b603d342e1359e871e00f0f3c111fcf3b8dadf76ed1f",
+  "scores_sha256": "7e5be71e0fb8ceafbb56f64a8919aca690f2e7fdfbbecf523308c01c49de1b29",
+  "original_models_sha256": {
+    "origem/logisticas_tres_metodos_20261028/modelos/perfil192D_pvalor.json": "61a271729bb71914fc94cbe1f44cdc66558b13d634ca7b3679b309de86dd07d5",
+    "origem/logisticas_tres_metodos_20261028/modelos/perfil192D_ridge.json": "d33d19756928548d20af491df875ab237678a6381fb269798ca6788f3993c7fc",
+    "origem/logisticas_tres_metodos_20261028/modelos/perfil192D_lasso.json": "3f2e7f2efa6a89f35235a00255e5fe17be2151455f61b872fe9bf161a33e943f",
+    "origem/logisticas_tres_metodos_20261028/modelos/multivetorial_pvalor.json": "5cfdb614f4bd20b4602973f0c8950d9e883c38e7639b5122864df792eee30a6c",
+    "origem/logisticas_tres_metodos_20261028/modelos/multivetorial_ridge.json": "2938e5d2d709ffa61e570a2bb8c9a79587ae661f9425ed28f69f5b838a8b3542",
+    "origem/logisticas_tres_metodos_20261028/modelos/multivetorial_lasso.json": "ebcd7c06639477dc3f0dbd4ac9c7add7f822b96e6f1b157f1afaa1c37d841e72",
+    "origem/logisticas_tres_metodos_20261028/modelos/original256D_pvalor.json": "832a8448e8b2e9dcdd60177ca8d95a89db525bff905af664ab0342897e74832c",
+    "origem/logisticas_tres_metodos_20261028/modelos/original256D_ridge.json": "9d14a58cfff7a42a98fc90a2b878c8b31f3a36fee497c63533c1af772fbdab6e",
+    "origem/logisticas_tres_metodos_20261028/modelos/original256D_lasso.json": "daf4839a95c288d4d453b0c0ac0d67cbcbd74ff4e2488e080169cb8161571a8a"
+  },
+  "k": 12,
+  "models_refitted": false,
+  "new_luna_calls": 0
+}

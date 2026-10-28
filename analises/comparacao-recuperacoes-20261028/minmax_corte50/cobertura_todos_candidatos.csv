@@ -1,0 +1,13 @@
+﻿metodo_id;perfil;metodo;entradas;julgados;nao_julgados;previstos_uteis_todos;previstos_uteis_julgados;previstos_uteis_nao_julgados
+original256D__minmax_corte50;original256D;Conteúdo original 256D · Cosseno min–max ≥ 0,5;2820;773;2047;1438;595;843
+original256D__ridge__probabilidade;original256D;Conteúdo original 256D · Ridge;2820;773;2047;479;312;167
+original256D__lasso__probabilidade;original256D;Conteúdo original 256D · LASSO;2820;773;2047;1291;549;742
+original256D__pvalor__probabilidade;original256D;Conteúdo original 256D · Logística por p-valor;2820;773;2047;876;392;484
+multivetorial__minmax_corte50;multivetorial;Multivetorial · Cosseno min–max ≥ 0,5;2820;773;2047;1410;584;826
+multivetorial__ridge__probabilidade;multivetorial;Multivetorial · Ridge;2820;773;2047;526;326;200
+multivetorial__lasso__probabilidade;multivetorial;Multivetorial · LASSO;2820;773;2047;1111;461;650
+multivetorial__pvalor__probabilidade;multivetorial;Multivetorial · Logística por p-valor;2820;773;2047;479;274;205
+perfil192D__minmax_corte50;perfil192D;Perfil 192D · Cosseno min–max ≥ 0,5;2820;773;2047;1205;541;664
+perfil192D__ridge__probabilidade;perfil192D;Perfil 192D · Ridge;2820;773;2047;120;108;12
+perfil192D__lasso__probabilidade;perfil192D;Perfil 192D · LASSO;2820;773;2047;278;217;61
+perfil192D__pvalor__probabilidade;perfil192D;Perfil 192D · Logística por p-valor;2820;773;2047;588;329;259

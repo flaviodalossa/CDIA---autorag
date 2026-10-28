@@ -1,0 +1,204 @@
+{
+  "version": "figuras_minmax_corte_pontual50.v1",
+  "status": "completed",
+  "created_at": "2026-10-28T16:45:12.538563+00:00",
+  "input_path": "../metricas_minmax_corte50.json",
+  "input_sha256": "7a540e543346bb94e89705514f4c469ef3705666d663227ffdf02e78089d9b18",
+  "generator_path": "gerar_figuras_minmax_corte50.py",
+  "generator_sha256": "e13f82a79652fafd8bfbb1c85a08f2d9a0a14e81f36bed2595ff46b9562c3c78",
+  "python_version": "3.11.2 (tags/v3.11.2:878ead1, Feb  7 2023, 16:38:35) [MSC v.1934 64 bit (AMD64)]",
+  "matplotlib_version": "3.11.2",
+  "numpy_version": "2.4.6",
+  "backend": "Agg",
+  "dpi": 200,
+  "n_judged_pairs": 773,
+  "class_counts": {
+    "not_useful": 580,
+    "useful": 193
+  },
+  "n_input_pairs": 2820,
+  "n_topics_per_query": 282,
+  "n_queries": 10,
+  "n_unjudged_pairs": 2047,
+  "unknown_labels_imputed": false,
+  "normalization_universe": "all_282_topics_per_query",
+  "decision_type": "pointwise_minmax_threshold",
+  "score_threshold": 0.5,
+  "score_is_probability": false,
+  "regression_probability_threshold": 0.5,
+  "model_fitting_performed": false,
+  "api_calls_performed": false,
+  "primary_analysis": "classification_correct_and_errors",
+  "figures": [
+    {
+      "id": "matrizes_minmax_original256D",
+      "title": "Acertos e erros de classificação",
+      "kind": "confusion_minmax_pointwise",
+      "scope": "primary_common_judged",
+      "profile": "original256D",
+      "n_judged_pairs": 773,
+      "files": {
+        "png": "matrizes_minmax_original256D.png",
+        "svg": "matrizes_minmax_original256D.svg",
+        "pdf": "matrizes_minmax_original256D.pdf"
+      },
+      "sha256": {
+        "png": "95f3db0b9abe1b678710cf61c7a0c4d9ebe2483c6694de460cc62faf097f8b22",
+        "svg": "139e30c62dbf3244fdfeddc96dc9904570130613d1dc501a3d575b99a30dc1b8",
+        "pdf": "abfca49a2d4b6b6d97d653d7e4b72af4d9e824719b4baeb1e34303da067c4207"
+      }
+    },
+    {
+      "id": "escores_minmax_original256D",
+      "title": "Escores minmax por pergunta",
+      "kind": "query_score_panels",
+      "scope": "primary_common_judged",
+      "profile": "original256D",
+      "n_judged_pairs": 773,
+      "files": {
+        "png": "escores_minmax_original256D.png",
+        "svg": "escores_minmax_original256D.svg",
+        "pdf": "escores_minmax_original256D.pdf"
+      },
+      "sha256": {
+        "png": "340a7bfb9cf7d777ed13f3004fad0d9eb4873d22ebd1206c09a17a567c2676f4",
+        "svg": "01cac488d52e4699b3d8e191847c2617ee748588712914bb57c10d9c51ff4579",
+        "pdf": "e7ffd896388f369b86c5f74cd6972c1c49000924ea1e62ec21a1e6a7e43a294a"
+      }
+    },
+    {
+      "id": "roc_minmax_original256D",
+      "title": "ROC auxiliar dos escores",
+      "kind": "roc_minmax_score",
+      "scope": "primary_common_judged",
+      "profile": "original256D",
+      "n_judged_pairs": 773,
+      "files": {
+        "png": "roc_minmax_original256D.png",
+        "svg": "roc_minmax_original256D.svg",
+        "pdf": "roc_minmax_original256D.pdf"
+      },
+      "sha256": {
+        "png": "2c83d8b672c0494c18d4a0a54571dc7e8514505bd31a4d00c283b4c0dadb930d",
+        "svg": "14c66f145ad93b18f171fc040ba4f031bf8684ed1fff27055af0548102b61929",
+        "pdf": "c35ee7e69bdf0cfe70f63a8027469a3d2e309275a066717539f5fa36714295cc"
+      }
+    },
+    {
+      "id": "matrizes_minmax_multivetorial",
+      "title": "Acertos e erros de classificação",
+      "kind": "confusion_minmax_pointwise",
+      "scope": "primary_common_judged",
+      "profile": "multivetorial",
+      "n_judged_pairs": 773,
+      "files": {
+        "png": "matrizes_minmax_multivetorial.png",
+        "svg": "matrizes_minmax_multivetorial.svg",
+        "pdf": "matrizes_minmax_multivetorial.pdf"
+      },
+      "sha256": {
+        "png": "23dd4c6d8226735217761813c4fc1d8edf15bb533ace9622a9507be5caa264cd",
+        "svg": "765ceb0d63b398ab9cfc7f138769266574e282f9c0d29c223381e3a5bc56d6cc",
+        "pdf": "8705eba68651698a2ef29b137f101e78bacbdac2db1065e23265026367856e65"
+      }
+    },
+    {
+      "id": "escores_minmax_multivetorial",
+      "title": "Escores minmax por pergunta",
+      "kind": "query_score_panels",
+      "scope": "primary_common_judged",
+      "profile": "multivetorial",
+      "n_judged_pairs": 773,
+      "files": {
+        "png": "escores_minmax_multivetorial.png",
+        "svg": "escores_minmax_multivetorial.svg",
+        "pdf": "escores_minmax_multivetorial.pdf"
+      },
+      "sha256": {
+        "png": "27cc7d5228ba5739eb054f36a748fa82d740a892ab9d8fb5d1317ad269b0e56b",
+        "svg": "b1f7e21401992a978ef847e10d9d1383e0f2933cc015f259817cd9139979018d",
+        "pdf": "5497f40e8564269e810137e4ba5cd04ec772374d21e7cb64b5a99147b03fe631"
+      }
+    },
+    {
+      "id": "roc_minmax_multivetorial",
+      "title": "ROC auxiliar dos escores",
+      "kind": "roc_minmax_score",
+      "scope": "primary_common_judged",
+      "profile": "multivetorial",
+      "n_judged_pairs": 773,
+      "files": {
+        "png": "roc_minmax_multivetorial.png",
+        "svg": "roc_minmax_multivetorial.svg",
+        "pdf": "roc_minmax_multivetorial.pdf"
+      },
+      "sha256": {
+        "png": "101b88fff218163bc2fbfd5d0cc7101505f3df7686dea7663273b94a8e4059cf",
+        "svg": "1b9894e62b4b95055bf54cb27665d369d7fe313ea3a6ccab1f56775b9cd06436",
+        "pdf": "939cd8902b2b1dce667bc94d7404d71000326efd141ecf98cc5e9924418b99e6"
+      }
+    },
+    {
+      "id": "matrizes_minmax_perfil192D",
+      "title": "Acertos e erros de classificação",
+      "kind": "confusion_minmax_pointwise",
+      "scope": "primary_common_judged",
+      "profile": "perfil192D",
+      "n_judged_pairs": 773,
+      "files": {
+        "png": "matrizes_minmax_perfil192D.png",
+        "svg": "matrizes_minmax_perfil192D.svg",
+        "pdf": "matrizes_minmax_perfil192D.pdf"
+      },
+      "sha256": {
+        "png": "98f4cfc9ff27afdad8ad8c2c383e404264286aded6e973f87d5d3a2684329232",
+        "svg": "b1563140f484fa2bebe2172feaee7055cdc94f45dc9533a3197c3fdea2af68dd",
+        "pdf": "6569231102e26e3cb7ec57cc1f76f9028e694907e02bf0ff5cd08a055e997366"
+      }
+    },
+    {
+      "id": "escores_minmax_perfil192D",
+      "title": "Escores minmax por pergunta",
+      "kind": "query_score_panels",
+      "scope": "primary_common_judged",
+      "profile": "perfil192D",
+      "n_judged_pairs": 773,
+      "files": {
+        "png": "escores_minmax_perfil192D.png",
+        "svg": "escores_minmax_perfil192D.svg",
+        "pdf": "escores_minmax_perfil192D.pdf"
+      },
+      "sha256": {
+        "png": "21d0b968c3b48a47fb4972cadd182e9f256f2a1655fe47c08b7154fa7bbdfcf5",
+        "svg": "d5475b754f993841adbab5c205c5efe323b5d0dcff3ecc338e8ce96ce5d58524",
+        "pdf": "3dd41b4f765d0da09b2d0f3474c06f5ab2c44493acaaca39834e92ee864e2c96"
+      }
+    },
+    {
+      "id": "roc_minmax_perfil192D",
+      "title": "ROC auxiliar dos escores",
+      "kind": "roc_minmax_score",
+      "scope": "primary_common_judged",
+      "profile": "perfil192D",
+      "n_judged_pairs": 773,
+      "files": {
+        "png": "roc_minmax_perfil192D.png",
+        "svg": "roc_minmax_perfil192D.svg",
+        "pdf": "roc_minmax_perfil192D.pdf"
+      },
+      "sha256": {
+        "png": "ab2db40b37d550f4054a78cab56bfd89541d6b4ef48b31049209f128b26e533d",
+        "svg": "04dc8e2cf2e6cb7e2ded5b2213d7267db0e09b7c96d328ef39d7fb490e6f6793",
+        "pdf": "6b7fa3dfdecb88dc2cce37cc85cadbdeb4a368a0fd6037ceb44c681abd0258b0"
+      }
+    }
+  ],
+  "publication": {
+    "paths_sanitized": true,
+    "original_input_sha256_preserved": true,
+    "input_sha256_scope": "Arquivo métrico original local, anterior à substituição dos caminhos de origem.",
+    "published_input_path": "../metricas_minmax_corte50.json",
+    "published_input_sha256": "c229e8391de2b8dc8bed0d8a56ef0ebd9fe248a5569728361d02ebaf45e13e0b",
+    "scientific_values_unchanged": true
+  }
+}

@@ -1,0 +1,165 @@
+{
+  "version": "figuras_top12_igual_todos_metodos.v1",
+  "status": "completed",
+  "created_at": "2026-10-28T16:52:37.538693+00:00",
+  "input_path": "../metricas_top12.json",
+  "input_sha256": "f5acd6ecba23f2c754fa5fb7d8fcfe03c8662fe688809e72f5b1f5f27a668fd8",
+  "generator_path": "gerar_figuras_top12_todos.py",
+  "generator_sha256": "1f04647556c628ae039100f920e046e7350d40e211ad0674d4cae1ccb1d9a1ae",
+  "python_version": "3.11.2 (tags/v3.11.2:878ead1, Feb  7 2023, 16:38:35) [MSC v.1934 64 bit (AMD64)]",
+  "matplotlib_version": "3.11.2",
+  "numpy_version": "2.4.6",
+  "backend": "Agg",
+  "dpi": 200,
+  "n_input_pairs_per_method": 2820,
+  "n_topics_per_query": 282,
+  "n_queries": 10,
+  "n_judged_pairs": 773,
+  "class_counts": {
+    "not_useful": 580,
+    "useful": 193
+  },
+  "k": 12,
+  "selected_positions_per_method": 120,
+  "same_k_all_methods": true,
+  "operating_point_is_global_score_threshold": false,
+  "probability_threshold_used": false,
+  "model_fitting_performed": false,
+  "api_calls_performed": false,
+  "figures": [
+    {
+      "id": "matrizes_top12_original256D",
+      "title": "Matrizes de confusão · top 12 para todos",
+      "kind": "confusion_top12",
+      "scope": "primary_common_judged",
+      "profile": "original256D",
+      "n_judged_pairs": 773,
+      "files": {
+        "png": "matrizes_top12_original256D.png",
+        "svg": "matrizes_top12_original256D.svg",
+        "pdf": "matrizes_top12_original256D.pdf"
+      },
+      "sha256": {
+        "png": "548ebb9d68d16ee360ff130ced68ba8717877714b7506cd24aa47140e64bda7a",
+        "svg": "dcb67dfae2949ddf9f404750014dd951b34bbda0fb5cba0669134c193a7fe2d5",
+        "pdf": "57bf28e09979543bfc3b8963fb24e110320a87c3b7888ae088aa4f3898383a32"
+      }
+    },
+    {
+      "id": "roc_top12_original256D",
+      "title": "ROC contínua e ponto top 12",
+      "kind": "roc_rawscore_top12",
+      "scope": "primary_common_judged",
+      "profile": "original256D",
+      "n_judged_pairs": 773,
+      "files": {
+        "png": "roc_top12_original256D.png",
+        "svg": "roc_top12_original256D.svg",
+        "pdf": "roc_top12_original256D.pdf"
+      },
+      "sha256": {
+        "png": "1f00b0418fd3bc7baad16ac3dc381d9a3a184936bbf4c513d9f134c77fc9ce3e",
+        "svg": "07806515b0cb7ecddf38433568df360e26a57e8400222bc262a5e5077d7b9abb",
+        "pdf": "f554fd66623fbbe6b7b2ebf747831458df1111d19d9acf4315a026f0258e9a35"
+      }
+    },
+    {
+      "id": "matrizes_top12_multivetorial",
+      "title": "Matrizes de confusão · top 12 para todos",
+      "kind": "confusion_top12",
+      "scope": "primary_common_judged",
+      "profile": "multivetorial",
+      "n_judged_pairs": 773,
+      "files": {
+        "png": "matrizes_top12_multivetorial.png",
+        "svg": "matrizes_top12_multivetorial.svg",
+        "pdf": "matrizes_top12_multivetorial.pdf"
+      },
+      "sha256": {
+        "png": "a69478cb3ee1aea03fa89797a9403d9f1752c7e0208b6c36f6ec929c21c4f5f8",
+        "svg": "eff389254824896dfcb186285d65121dd2349f7eb7d36da101ffbee08460294d",
+        "pdf": "5e5fd4ca26177200ee6062a8a08de6168607e1dc92cef50ecda2caeffe850aca"
+      }
+    },
+    {
+      "id": "roc_top12_multivetorial",
+      "title": "ROC contínua e ponto top 12",
+      "kind": "roc_rawscore_top12",
+      "scope": "primary_common_judged",
+      "profile": "multivetorial",
+      "n_judged_pairs": 773,
+      "files": {
+        "png": "roc_top12_multivetorial.png",
+        "svg": "roc_top12_multivetorial.svg",
+        "pdf": "roc_top12_multivetorial.pdf"
+      },
+      "sha256": {
+        "png": "97fd6222bb8a32a7da93c64cff43283dcceb84eb6f548003717dbce54b012a76",
+        "svg": "b7df8eb708ae009dc48787c5c56d733c3a06ae3433a9ff26ab30a5e2ad4a745b",
+        "pdf": "5f547e76da982aec72c97d4ad58f3f0110e8e3100d0b3a268492483cc4d90443"
+      }
+    },
+    {
+      "id": "matrizes_top12_perfil192D",
+      "title": "Matrizes de confusão · top 12 para todos",
+      "kind": "confusion_top12",
+      "scope": "primary_common_judged",
+      "profile": "perfil192D",
+      "n_judged_pairs": 773,
+      "files": {
+        "png": "matrizes_top12_perfil192D.png",
+        "svg": "matrizes_top12_perfil192D.svg",
+        "pdf": "matrizes_top12_perfil192D.pdf"
+      },
+      "sha256": {
+        "png": "90cb4777de6b16d5278f4577ea243a7e6a9d9dcd5584becb7bc22d6c0419a798",
+        "svg": "8d7d1102931d48a4596a4f97d69b720869a6ec80944129facda2ef479d3bb31a",
+        "pdf": "86f5c3b8a7228bab8fbe4531d1715019cf2cc48e1ebd20ceba9c32dea5c7dfbc"
+      }
+    },
+    {
+      "id": "roc_top12_perfil192D",
+      "title": "ROC contínua e ponto top 12",
+      "kind": "roc_rawscore_top12",
+      "scope": "primary_common_judged",
+      "profile": "perfil192D",
+      "n_judged_pairs": 773,
+      "files": {
+        "png": "roc_top12_perfil192D.png",
+        "svg": "roc_top12_perfil192D.svg",
+        "pdf": "roc_top12_perfil192D.pdf"
+      },
+      "sha256": {
+        "png": "777ac10c1c7c416ec537541f406382b78951009b6253871db4a10f55fcbd5da1",
+        "svg": "5659736668bd86ebda655ad7ffb537e2bd30ca135bfde82fc99e74dc411be9f4",
+        "pdf": "e04f66518deeb82d80fb3aeeb8b4d2d9dadac0b94a54cd3c4352a58be6ae2a93"
+      }
+    },
+    {
+      "id": "uteis_top12_todos",
+      "title": "Úteis no top 12 · mesmo orçamento",
+      "kind": "useful_top12_comparison",
+      "scope": "primary_common_judged",
+      "profile": null,
+      "n_judged_pairs": 773,
+      "files": {
+        "png": "uteis_top12_todos.png",
+        "svg": "uteis_top12_todos.svg",
+        "pdf": "uteis_top12_todos.pdf"
+      },
+      "sha256": {
+        "png": "935110fa6983e58d3d2f13eb66d85e65008070334c3b0a1fc05b806f28cd21dc",
+        "svg": "72bd3c5d066fa1ed85d816ab1701e132e1f7f02d7330ee36b0e6055b7ccde071",
+        "pdf": "89d21299de8b72e6f8a0a8c041220b3055b9fa1cb98f77f88a17cb36d3638ed8"
+      }
+    }
+  ],
+  "publication": {
+    "paths_sanitized": true,
+    "original_input_sha256_preserved": true,
+    "input_sha256_scope": "Arquivo métrico original local, anterior à substituição dos caminhos de origem.",
+    "published_input_path": "../metricas_top12.json",
+    "published_input_sha256": "d021c3989636b116703a010fc8d41cf5b2e5268b83cc37a084a3ff47e402fbff",
+    "scientific_values_unchanged": true
+  }
+}
