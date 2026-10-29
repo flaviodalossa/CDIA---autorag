@@ -1,0 +1,254 @@
+{
+  "status": "concluido_auditado",
+  "data_utc": "2026-10-29T01:07:51.609998+00:00",
+  "divisao": {
+    "semente": 20261028,
+    "algoritmo": "StratifiedGroupKFold(5), fold 0 reservado para teste, agrupado por topico_id",
+    "treino": 2250,
+    "teste": 570,
+    "topicos_treino": 225,
+    "topicos_teste": 57,
+    "topicos_compartilhados": 0,
+    "entradas_treino": 10,
+    "entradas_teste": 10,
+    "positivos_treino": 450,
+    "positivos_teste": 117,
+    "por_entrada": [
+      {
+        "entrada_id": "nova_01",
+        "treino": 225,
+        "teste": 57,
+        "positivos_treino": 87,
+        "positivos_teste": 24
+      },
+      {
+        "entrada_id": "nova_02",
+        "treino": 225,
+        "teste": 57,
+        "positivos_treino": 25,
+        "positivos_teste": 7
+      },
+      {
+        "entrada_id": "nova_03",
+        "treino": 225,
+        "teste": 57,
+        "positivos_treino": 28,
+        "positivos_teste": 9
+      },
+      {
+        "entrada_id": "nova_04",
+        "treino": 225,
+        "teste": 57,
+        "positivos_treino": 40,
+        "positivos_teste": 14
+      },
+      {
+        "entrada_id": "nova_05",
+        "treino": 225,
+        "teste": 57,
+        "positivos_treino": 38,
+        "positivos_teste": 8
+      },
+      {
+        "entrada_id": "nova_06",
+        "treino": 225,
+        "teste": 57,
+        "positivos_treino": 41,
+        "positivos_teste": 4
+      },
+      {
+        "entrada_id": "nova_07",
+        "treino": 225,
+        "teste": 57,
+        "positivos_treino": 30,
+        "positivos_teste": 7
+      },
+      {
+        "entrada_id": "nova_08",
+        "treino": 225,
+        "teste": 57,
+        "positivos_treino": 108,
+        "positivos_teste": 28
+      },
+      {
+        "entrada_id": "nova_09",
+        "treino": 225,
+        "teste": 57,
+        "positivos_treino": 20,
+        "positivos_teste": 10
+      },
+      {
+        "entrada_id": "nova_10",
+        "treino": 225,
+        "teste": 57,
+        "positivos_treino": 33,
+        "positivos_teste": 6
+      }
+    ],
+    "inner_cv": "4 folds agrupados por tópico; índices relativos ao treino externo",
+    "valores_teste_fora_faixa_0_1": 241,
+    "escopo": "Tópicos novos para as mesmas dez entradas; não mede generalização para perguntas novas.",
+    "fontes_sha256": {
+      "C:\\Users\\dflav\\OneDrive\\Documentos\\ChatGPT\\autorag modelagem de embeddings\\base_produtos_originais_282x10_20261028\\base_produtos_originais.csv": "4db653c10ca9f6fb7ee3c8c792809bafb63c42e35b0551ffb91a97d50d6bdeb9",
+      "C:\\Users\\dflav\\OneDrive\\Documentos\\ChatGPT\\autorag modelagem de embeddings\\base_produtos_originais_282x10_20261028\\vinculos_linhas.json": "3924c83c393f998cc31f22ef8b075e65e22ebcc6bafb6192bd19444b9c17e575",
+      "C:\\Users\\dflav\\OneDrive\\Documentos\\ChatGPT\\autorag modelagem de embeddings\\base_produtos_originais_282x10_20261028\\esquema_base.json": "4c47b22f2db9ccd6ed5f37031066d40826fc302442a2fef69963b803ae66d652",
+      "C:\\Users\\dflav\\OneDrive\\Documentos\\ChatGPT\\autorag modelagem de embeddings\\base_produtos_originais_282x10_20261028\\auditoria.json": "ed195c2691424d5367c119654ce5914fb426f8aad80e4169269b631875b95346"
+    }
+  },
+  "metodologia": {
+    "alvo": "Relação temática Luna:1 relacionado,0 não relacionado",
+    "preditores": "Distância cosseno e256produtos originais;257variáveis;IDs utilizados como metadados de divisão.",
+    "split": "Tópicos inteiros separados;fold0 do SGKF5;aproximadamente80%treino20%teste;mesmas10entradas emambos.",
+    "selecao": "Menor log-loss em quatro folds internos agrupados por tópico; minmax, ranking e ajuste refeitos em cada treino interno.",
+    "minmax": "Somente preditores; ajuste no treino, sem truncamento. O teste pode exceder [0,1].",
+    "logistica": "Ranking por AUC univariada no treino; CV escolhe k entre 8,16,32,64,128,257, grau 1,2,3 e C 0.1,1,10. L2; interações entre as seis variáveis mais bem ranqueadas.",
+    "limiar_classificacao": 0.5,
+    "teste_usado_para_selecao": false,
+    "limitacoes": [
+      "Teste mede tópicos novos para as mesmas dez entradas; não mede perguntas novas.",
+      "Rótulos são avaliações Luna de relação temática, não avaliações humanas de utilidade."
+    ],
+    "fontes": [
+      "https://scikit-learn.org/stable/common_pitfalls.html",
+      "https://scikit-learn.org/stable/modules/generated/sklearn.neural_network.MLPClassifier.html",
+      "https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html"
+    ],
+    "ampliacao_logistica": {
+      "definida_em": "2026-10-29T00:52:30+00:00",
+      "motivo": "k=32 venceu na borda da busca inicial.",
+      "teste_consultado_para_decidir_ampliacao": false,
+      "configuracoes_totais": 54
+    }
+  },
+  "modelos": {
+    "logistica": {
+      "melhores_parametros": {
+        "C": 1.0,
+        "degree": 1,
+        "k_main": 257
+      },
+      "log_loss_cv": 0.396774423959801,
+      "configuracoes": 54,
+      "tempo_segundos": 255.527,
+      "modelo_arquivo": "modelos\\logistica.joblib",
+      "sha256_modelo": "daf3432c15683de2cb379734f0001d3b2ea9fed13f0bd86b7b7e243ac35fe2c8",
+      "avisos_convergencia": [],
+      "reajuste_otimizacao_sem_teste": false,
+      "ampliacao_definida_em": "2026-10-29T00:52:30+00:00",
+      "ampliacao_criterio": "Melhor k inicial igual ao limite 32; testar 64,128,257 usando somente a mesma CV de treino.",
+      "extensao_melhorou": true,
+      "log_loss_cv_inicial": 0.41971849803659245,
+      "resumo_extensao": "extensao_logistica/resumo_extensao.json"
+    },
+    "random_forest": {
+      "melhores_parametros": {
+        "modelo__max_depth": null,
+        "modelo__max_features": 0.3,
+        "modelo__min_samples_leaf": 3
+      },
+      "log_loss_cv": 0.4062164186771203,
+      "configuracoes": 12,
+      "tempo_segundos": 748.7030000000377,
+      "modelo_arquivo": "modelos\\random_forest.joblib",
+      "sha256_modelo": "db6959277408d466a910f7370369aca998dbc51d8f1a3652f3353b72f15751d2",
+      "avisos_convergencia": [],
+      "reajuste_otimizacao_sem_teste": false
+    },
+    "rede_neural": {
+      "melhores_parametros": {
+        "modelo__alpha": 1.0,
+        "modelo__hidden_layer_sizes": [
+          32
+        ]
+      },
+      "log_loss_cv": 0.3996298820653472,
+      "configuracoes": 6,
+      "tempo_segundos": 189.53100000001723,
+      "modelo_arquivo": "modelos\\rede_neural.joblib",
+      "sha256_modelo": "2a2fd0b5556a8ca367a52b583c526fe7e6b9c78cb376d37316a0bfdf655ce99b",
+      "avisos_convergencia": [],
+      "reajuste_otimizacao_sem_teste": false,
+      "n_iter": 333,
+      "max_iter": 1500
+    }
+  },
+  "metricas_teste": [
+    {
+      "modelo": "rede_neural",
+      "roc_auc": 0.8527952302786739,
+      "average_precision": 0.5736041965950254,
+      "log_loss": 0.37321286489192207,
+      "brier": 0.11698443116924402,
+      "accuracy": 0.8403508771929824,
+      "balanced_accuracy": 0.6745061413935586,
+      "precision": 0.696969696969697,
+      "recall": 0.39316239316239315,
+      "f1": 0.5027322404371585,
+      "tn": 433,
+      "fp": 20,
+      "fn": 71,
+      "tp": 46,
+      "n": 570
+    },
+    {
+      "modelo": "logistica",
+      "roc_auc": 0.8496066111960151,
+      "average_precision": 0.567628210647122,
+      "log_loss": 0.375100342550058,
+      "brier": 0.11883087575124263,
+      "accuracy": 0.8298245614035088,
+      "balanced_accuracy": 0.6425256127242882,
+      "precision": 0.6785714285714286,
+      "recall": 0.3247863247863248,
+      "f1": 0.4393063583815029,
+      "tn": 435,
+      "fp": 18,
+      "fn": 79,
+      "tp": 38,
+      "n": 570
+    },
+    {
+      "modelo": "random_forest",
+      "roc_auc": 0.8597573630686214,
+      "average_precision": 0.6439415604875235,
+      "log_loss": 0.38532266493422235,
+      "brier": 0.1191689187722837,
+      "accuracy": 0.8245614035087719,
+      "balanced_accuracy": 0.5948378332484293,
+      "precision": 0.7741935483870968,
+      "recall": 0.20512820512820512,
+      "f1": 0.32432432432432434,
+      "tn": 446,
+      "fp": 7,
+      "fn": 93,
+      "tp": 24,
+      "n": 570
+    }
+  ],
+  "limiares": {
+    "rede_neural": 0.5,
+    "logistica": 0.5,
+    "random_forest": 0.5
+  },
+  "fontes_sha256": {
+    "C:\\Users\\dflav\\OneDrive\\Documentos\\ChatGPT\\autorag modelagem de embeddings\\base_produtos_originais_282x10_20261028\\base_produtos_originais.csv": "4db653c10ca9f6fb7ee3c8c792809bafb63c42e35b0551ffb91a97d50d6bdeb9",
+    "C:\\Users\\dflav\\OneDrive\\Documentos\\ChatGPT\\autorag modelagem de embeddings\\base_produtos_originais_282x10_20261028\\vinculos_linhas.json": "3924c83c393f998cc31f22ef8b075e65e22ebcc6bafb6192bd19444b9c17e575",
+    "C:\\Users\\dflav\\OneDrive\\Documentos\\ChatGPT\\autorag modelagem de embeddings\\base_produtos_originais_282x10_20261028\\esquema_base.json": "4c47b22f2db9ccd6ed5f37031066d40826fc302442a2fef69963b803ae66d652",
+    "C:\\Users\\dflav\\OneDrive\\Documentos\\ChatGPT\\autorag modelagem de embeddings\\base_produtos_originais_282x10_20261028\\auditoria.json": "ed195c2691424d5367c119654ce5914fb426f8aad80e4169269b631875b95346"
+  },
+  "codigo_sha256": {
+    "C:\\Users\\dflav\\OneDrive\\Documentos\\ChatGPT\\autorag modelagem de embeddings\\comparar_modelos_produtos.py": "8f57b0a4f231ed2b3adee367c7aba02bbe067b45ff7e0cbcd14b3090df363639",
+    "C:\\Users\\dflav\\OneDrive\\Documentos\\ChatGPT\\autorag modelagem de embeddings\\modelo_logistica_preditiva_produtos.py": "37919ce69d80c8276f4274349e215dff295200616db3cd165708128d85d5598f",
+    "C:\\Users\\dflav\\OneDrive\\Documentos\\ChatGPT\\autorag modelagem de embeddings\\finalizar_comparacao_produtos.py": "7872ab9486aa2bcd12e25c8b263f944f60921cf354cc22acd2a74535850ffeac",
+    "C:\\Users\\dflav\\OneDrive\\Documentos\\ChatGPT\\autorag modelagem de embeddings\\comparacao_modelos_produtos_282x10_20261028\\extensao_logistica\\executar_extensao_logistica.py": "f6d01b4819ef643f610368f737eaecd49618a93f293afe50e9b3c683bb35702e"
+  },
+  "versoes": {
+    "python": "3.11.2 (tags/v3.11.2:878ead1, Feb  7 2023, 16:38:35) [MSC v.1934 64 bit (AMD64)]",
+    "numpy": "2.4.6",
+    "sklearn": "1.9.1",
+    "joblib": "1.6.0"
+  },
+  "auditoria_independente": "auditoria_independente.json",
+  "auditoria_convergencia_rede_neural": "auditoria_convergencia_rede_neural.json",
+  "auditado_em_utc": "2026-10-29T01:10:38.960983+00:00"
+}

@@ -1,0 +1,67 @@
+{
+  "status": "conferido",
+  "ajuste_final": {
+    "n_iter": 333,
+    "max_iter": 1500,
+    "convergiu_antes_limite": true
+  },
+  "parametros_selecionados": {
+    "modelo__alpha": 1.0,
+    "modelo__hidden_layer_sizes": [
+      32
+    ]
+  },
+  "cv_log_loss": 0.3996298820653472,
+  "folds": [
+    {
+      "fold": 0,
+      "n_treino": 1680,
+      "n_validacao": 570,
+      "n_iter": 439,
+      "max_iter": 1500,
+      "atingiu_limite_iteracoes": false,
+      "convergiu_antes_limite": true,
+      "log_loss_reproduzido": 0.3681253441573513,
+      "log_loss_registrado_cv": 0.3681253441573513,
+      "avisos": []
+    },
+    {
+      "fold": 1,
+      "n_treino": 1700,
+      "n_validacao": 550,
+      "n_iter": 310,
+      "max_iter": 1500,
+      "atingiu_limite_iteracoes": false,
+      "convergiu_antes_limite": true,
+      "log_loss_reproduzido": 0.4200642359848183,
+      "log_loss_registrado_cv": 0.4200642359848183,
+      "avisos": []
+    },
+    {
+      "fold": 2,
+      "n_treino": 1690,
+      "n_validacao": 560,
+      "n_iter": 399,
+      "max_iter": 1500,
+      "atingiu_limite_iteracoes": false,
+      "convergiu_antes_limite": true,
+      "log_loss_reproduzido": 0.3924940401019099,
+      "log_loss_registrado_cv": 0.3924940401019099,
+      "avisos": []
+    },
+    {
+      "fold": 3,
+      "n_treino": 1680,
+      "n_validacao": 570,
+      "n_iter": 522,
+      "max_iter": 1500,
+      "atingiu_limite_iteracoes": false,
+      "convergiu_antes_limite": true,
+      "log_loss_reproduzido": 0.4178359080173094,
+      "log_loss_registrado_cv": 0.4178359080173094,
+      "avisos": []
+    }
+  ],
+  "todos_folds_convergiram_antes_limite": true,
+  "nota": "Foram observados avisos de candidatos da busca geral atingindo 1500 iteracoes; aqui se verifica somente a configuracao selecionada, sem nova selecao ou ajuste pelo teste."
+}

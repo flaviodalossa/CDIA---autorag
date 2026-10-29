@@ -1,0 +1,273 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Produtos por dimensão · comparação de classificadores</title><style>
+:root{color-scheme:light;--ink:#16324f;--muted:#50677e;--line:#dce6ef;--paper:#f3f7fb}*{box-sizing:border-box}body{margin:0;background:var(--paper);font:16px/1.6 system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink)}header{background:#102e49;color:white;padding:46px max(5vw,20px) 36px}header .kicker{font-size:12px;letter-spacing:.17em;text-transform:uppercase;color:#a9d3ed}h1{font-size:clamp(28px,4vw,44px);line-height:1.15;margin:.4em 0}header p{max-width:960px;color:#d5e8f5}nav{display:flex;gap:20px;flex-wrap:wrap;padding:15px max(5vw,20px);background:white;border-bottom:1px solid var(--line)}a{color:#006ca8}nav a{text-decoration:none;font-size:14px}main{max-width:1440px;margin:auto;padding:24px}section{background:white;border:1px solid var(--line);border-radius:14px;margin:0 0 24px;padding:26px}h2{margin:0 0 12px;font-size:23px}h3{margin:22px 0 8px}p{margin:10px 0 16px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin:20px 0}.card{padding:18px;border-radius:10px;background:#edf5fa}.card strong{display:block;font-size:28px}.card span{font-size:13px;color:var(--muted)}.notice{padding:17px 20px;background:#e8f5ef;border-left:4px solid #009E73;border-radius:6px;margin:16px 0}.small{font-size:13px;color:var(--muted)}.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:9px}table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}th,td{text-align:right;padding:11px 13px;border-bottom:1px solid var(--line)}th{background:#eaf2f8;font-weight:650}th:first-child,td:first-child{text-align:left}tr:last-child td{border-bottom:0}tbody tr:hover{background:#f6fafc}figure{margin:25px 0 12px}figure img{width:100%;height:auto;border:1px solid var(--line);border-radius:9px}figcaption{font-size:13px;color:var(--muted);margin:7px 0 16px}.downloads{display:flex;gap:12px;flex-wrap:wrap}.downloads a{background:#edf5fa;padding:8px 13px;border-radius:6px;font-size:14px}details{margin:14px 0}summary{cursor:pointer;font-weight:600}pre{padding:15px;background:#f5f8fb;overflow:auto;font-size:12px;line-height:1.5}footer{max-width:1440px;margin:auto;padding:0 24px 32px;font-size:12px;color:var(--muted)}.query-control{margin:8px 0 15px}select{padding:8px 12px;border:1px solid var(--line);border-radius:6px;background:white;font:inherit}@media print{body{background:white}header{color:#16324f;background:white;padding:0}header p{color:#50677e}nav,.query-control{display:none}main{padding:0}section{break-inside:avoid;border:0;padding:14px 0}a{color:inherit}figure{break-inside:avoid}}
+</style></head><body>
+<header><div class="kicker">Relação temática · Luna 6 · análise exploratória</div><h1>Três modelos, o mesmo teste</h1><p>Rede neural, logística com seleção preditiva e interações até a terceira ordem, e random forest. Preditores: distância cosseno e os 256 produtos entre coordenadas correspondentes dos vetores originais da entrada e do tópico, transformados por min–max ajustado no treino.</p><p class="small" style="color:#bad1e3">Gerado em 28/10/2026 22:10 BRT. Este relatório lê as previsões já salvas e não treina modelos.</p></header>
+<nav><a href="#resultado">Resultados</a><a href="#curvas">Curvas e confusões</a><a href="#entradas">Por entrada</a><a href="#valores-preditivos">VPP e VPN</a><a href="#metodo">Método</a><a href="#arquivos">Arquivos</a></nav><main>
+<section id="resultado"><h2>Desempenho no conjunto separado para teste</h2><div class="cards"><div class="card"><strong>2.250</strong><span>pares de treino</span></div><div class="card"><strong>570</strong><span>pares de teste</span></div><div class="card"><strong>10</strong><span>entradas presentes no teste</span></div><div class="card"><strong>117 / 570</strong><span>relacionados no teste · 20,5%</span></div></div>
+<div class="notice"><strong>Maior ROC-AUC: Random forest (0,8598).</strong> A maior AP é de Random forest (0,6439); o menor log loss é de Rede neural (0,3732). As diferenças observadas descrevem esta divisão de teste e não demonstram superioridade estatística.</div>
+<div class="table-wrap"><table id="metricas-teste"><thead><tr><th>Modelo</th><th>ROC-AUC ↑</th><th>AP ↑</th><th>Log loss ↓</th><th>Brier ↓</th><th>Acurácia ↑</th><th>Ac. balanceada ↑</th><th>Precisão ↑</th><th>Recall ↑</th><th>F1 ↑</th></tr></thead><tbody><tr><td>Rede neural</td><td>0,8528</td><td>0,5736</td><td>0,3732</td><td>0,1170</td><td>0,8404</td><td>0,6745</td><td>0,6970</td><td>0,3932</td><td>0,5027</td></tr><tr><td>Logística</td><td>0,8496</td><td>0,5676</td><td>0,3751</td><td>0,1188</td><td>0,8298</td><td>0,6425</td><td>0,6786</td><td>0,3248</td><td>0,4393</td></tr><tr><td>Random forest</td><td>0,8598</td><td>0,6439</td><td>0,3853</td><td>0,1192</td><td>0,8246</td><td>0,5948</td><td>0,7742</td><td>0,2051</td><td>0,3243</td></tr></tbody></table></div><p class="small">↑: maior é melhor; ↓: menor é melhor. ROC-AUC e AP avaliam a ordenação; log loss e Brier avaliam as probabilidades. Acurácia, precisão, recall e F1 dependem do limiar. Rótulo positivo: conteúdo relacionado ao tema da entrada. AP de referência para ordenação aleatória: prevalência do teste, 0,2053.</p></section>
+<section id="curvas"><h2>Discriminação, decisões e calibração</h2><figure><a href="curvas_roc_pr_teste.png" target="_blank"><img src="curvas_roc_pr_teste.png" alt="Curvas ROC e precisão-recall dos três modelos"></a><figcaption>Escores contínuos das mesmas linhas de teste. AP é a precisão média, calculada em degraus; não é a área trapezoidal da curva PR.</figcaption></figure><figure><a href="matrizes_confusao_proporcoes_teste.png" target="_blank"><img src="matrizes_confusao_proporcoes_teste.png" alt="Matrizes de confusão com frações e percentuais por linha observada Luna 6"></a><figcaption>Normalização por linha observada Luna 6. Cada célula mostra contagem/total da linha e percentual: denominador 453 para Luna 6 = 0 e 117 para Luna 6 = 1. As duas células de cada linha somam 100%. A cor representa a proporção dentro dessa linha, de 0 a 1. Colunas: decisão do modelo com limiar 0,5. As contagens originais foram preservadas.</figcaption></figure><figure><a href="calibracao_teste.png" target="_blank"><img src="calibracao_teste.png" alt="Curvas de calibração e distribuição das probabilidades"></a><figcaption>Cada ponto de calibração reúne até aproximadamente 10% das linhas, ordenadas pela probabilidade. Valores empatados podem reduzir o número de grupos; as contagens estão no CSV de calibração.</figcaption></figure></section>
+<section id="entradas"><h2>Resultados por entrada</h2><p>As mesmas entradas estão representadas em treino e teste; os tópicos do teste ficaram inteiramente fora do treino. Cada linha abaixo descreve somente os pares de teste daquela entrada; grupos pequenos tornam estas métricas mais instáveis.</p><div class="query-control"><label for="filtro-entrada">Mostrar: </label><select id="filtro-entrada"><option value="">Todas as entradas</option><option value="nova_01">nova_01</option><option value="nova_02">nova_02</option><option value="nova_03">nova_03</option><option value="nova_04">nova_04</option><option value="nova_05">nova_05</option><option value="nova_06">nova_06</option><option value="nova_07">nova_07</option><option value="nova_08">nova_08</option><option value="nova_09">nova_09</option><option value="nova_10">nova_10</option></select></div><div class="table-wrap"><table id="metricas-entrada"><thead><tr><th>Entrada</th><th>Modelo</th><th>N</th><th>Luna = 1</th><th>ROC-AUC ↑</th><th>AP ↑</th><th>Log loss ↓</th><th>Brier ↓</th><th>Acurácia ↑</th><th>Ac. balanceada ↑</th><th>Precisão ↑</th><th>Recall ↑</th><th>F1 ↑</th></tr></thead><tbody><tr><td>nova_01</td><td>Rede neural</td><td>57</td><td>24</td><td>0,7727</td><td>0,6510</td><td>0,5644</td><td>0,1954</td><td>0,6842</td><td>0,6705</td><td>0,6364</td><td>0,5833</td><td>0,6087</td></tr><tr><td>nova_01</td><td>Logística</td><td>57</td><td>24</td><td>0,7538</td><td>0,6136</td><td>0,6114</td><td>0,2145</td><td>0,6491</td><td>0,6174</td><td>0,6250</td><td>0,4167</td><td>0,5000</td></tr><tr><td>nova_01</td><td>Random forest</td><td>57</td><td>24</td><td>0,8422</td><td>0,7986</td><td>0,5430</td><td>0,1822</td><td>0,6842</td><td>0,6364</td><td>0,8000</td><td>0,3333</td><td>0,4706</td></tr><tr><td>nova_02</td><td>Rede neural</td><td>57</td><td>7</td><td>0,9371</td><td>0,7996</td><td>0,2397</td><td>0,0715</td><td>0,8947</td><td>0,5714</td><td>1,0000</td><td>0,1429</td><td>0,2500</td></tr><tr><td>nova_02</td><td>Logística</td><td>57</td><td>7</td><td>0,9371</td><td>0,8203</td><td>0,2245</td><td>0,0675</td><td>0,8947</td><td>0,5714</td><td>1,0000</td><td>0,1429</td><td>0,2500</td></tr><tr><td>nova_02</td><td>Random forest</td><td>57</td><td>7</td><td>0,8857</td><td>0,6133</td><td>0,2955</td><td>0,0881</td><td>0,8772</td><td>0,5000</td><td>0,0000</td><td>0,0000</td><td>0,0000</td></tr><tr><td>nova_03</td><td>Rede neural</td><td>57</td><td>9</td><td>0,8657</td><td>0,7031</td><td>0,3187</td><td>0,0957</td><td>0,8772</td><td>0,6111</td><td>1,0000</td><td>0,2222</td><td>0,3636</td></tr><tr><td>nova_03</td><td>Logística</td><td>57</td><td>9</td><td>0,8426</td><td>0,6260</td><td>0,3292</td><td>0,0989</td><td>0,8772</td><td>0,6111</td><td>1,0000</td><td>0,2222</td><td>0,3636</td></tr><tr><td>nova_03</td><td>Random forest</td><td>57</td><td>9</td><td>0,8241</td><td>0,6214</td><td>0,3616</td><td>0,1094</td><td>0,8421</td><td>0,5000</td><td>0,0000</td><td>0,0000</td><td>0,0000</td></tr><tr><td>nova_04</td><td>Rede neural</td><td>57</td><td>14</td><td>0,7209</td><td>0,5354</td><td>0,4900</td><td>0,1629</td><td>0,7719</td><td>0,5357</td><td>1,0000</td><td>0,0714</td><td>0,1333</td></tr><tr><td>nova_04</td><td>Logística</td><td>57</td><td>14</td><td>0,7292</td><td>0,5666</td><td>0,5029</td><td>0,1656</td><td>0,7719</td><td>0,5357</td><td>1,0000</td><td>0,0714</td><td>0,1333</td></tr><tr><td>nova_04</td><td>Random forest</td><td>57</td><td>14</td><td>0,8056</td><td>0,6904</td><td>0,4782</td><td>0,1568</td><td>0,7544</td><td>0,5000</td><td>0,0000</td><td>0,0000</td><td>0,0000</td></tr><tr><td>nova_05</td><td>Rede neural</td><td>57</td><td>8</td><td>0,7934</td><td>0,4458</td><td>0,3368</td><td>0,1005</td><td>0,8596</td><td>0,5523</td><td>0,5000</td><td>0,1250</td><td>0,2000</td></tr><tr><td>nova_05</td><td>Logística</td><td>57</td><td>8</td><td>0,7602</td><td>0,3947</td><td>0,3433</td><td>0,1035</td><td>0,8246</td><td>0,4796</td><td>0,0000</td><td>0,0000</td><td>0,0000</td></tr><tr><td>nova_05</td><td>Random forest</td><td>57</td><td>8</td><td>0,7959</td><td>0,6173</td><td>0,3483</td><td>0,1010</td><td>0,8596</td><td>0,5000</td><td>0,0000</td><td>0,0000</td><td>0,0000</td></tr><tr><td>nova_06</td><td>Rede neural</td><td>57</td><td>4</td><td>0,8774</td><td>0,4801</td><td>0,2703</td><td>0,0723</td><td>0,9298</td><td>0,7311</td><td>0,5000</td><td>0,5000</td><td>0,5000</td></tr><tr><td>nova_06</td><td>Logística</td><td>57</td><td>4</td><td>0,8679</td><td>0,4774</td><td>0,2327</td><td>0,0614</td><td>0,9474</td><td>0,8561</td><td>0,6000</td><td>0,7500</td><td>0,6667</td></tr><tr><td>nova_06</td><td>Random forest</td><td>57</td><td>4</td><td>0,8679</td><td>0,6595</td><td>0,2659</td><td>0,0656</td><td>0,9298</td><td>0,5000</td><td>0,0000</td><td>0,0000</td><td>0,0000</td></tr><tr><td>nova_07</td><td>Rede neural</td><td>57</td><td>7</td><td>0,7943</td><td>0,3996</td><td>0,3160</td><td>0,0942</td><td>0,8947</td><td>0,5714</td><td>1,0000</td><td>0,1429</td><td>0,2500</td></tr><tr><td>nova_07</td><td>Logística</td><td>57</td><td>7</td><td>0,7886</td><td>0,4123</td><td>0,3157</td><td>0,0951</td><td>0,8772</td><td>0,5000</td><td>0,0000</td><td>0,0000</td><td>0,0000</td></tr><tr><td>nova_07</td><td>Random forest</td><td>57</td><td>7</td><td>0,8486</td><td>0,4524</td><td>0,3351</td><td>0,0975</td><td>0,8772</td><td>0,5000</td><td>0,0000</td><td>0,0000</td><td>0,0000</td></tr><tr><td>nova_08</td><td>Rede neural</td><td>57</td><td>28</td><td>0,7426</td><td>0,6550</td><td>0,5941</td><td>0,1997</td><td>0,7544</td><td>0,7549</td><td>0,7333</td><td>0,7857</td><td>0,7586</td></tr><tr><td>nova_08</td><td>Logística</td><td>57</td><td>28</td><td>0,7562</td><td>0,6652</td><td>0,6064</td><td>0,2069</td><td>0,7193</td><td>0,7186</td><td>0,7308</td><td>0,6786</td><td>0,7037</td></tr><tr><td>nova_08</td><td>Random forest</td><td>57</td><td>28</td><td>0,7734</td><td>0,7458</td><td>0,5951</td><td>0,2035</td><td>0,7018</td><td>0,6995</td><td>0,7619</td><td>0,5714</td><td>0,6531</td></tr><tr><td>nova_09</td><td>Rede neural</td><td>57</td><td>10</td><td>0,8213</td><td>0,4816</td><td>0,3823</td><td>0,1218</td><td>0,8070</td><td>0,4894</td><td>0,0000</td><td>0,0000</td><td>0,0000</td></tr><tr><td>nova_09</td><td>Logística</td><td>57</td><td>10</td><td>0,8128</td><td>0,4528</td><td>0,4021</td><td>0,1278</td><td>0,8070</td><td>0,4894</td><td>0,0000</td><td>0,0000</td><td>0,0000</td></tr><tr><td>nova_09</td><td>Random forest</td><td>57</td><td>10</td><td>0,8915</td><td>0,7403</td><td>0,3596</td><td>0,1154</td><td>0,8246</td><td>0,5000</td><td>0,0000</td><td>0,0000</td><td>0,0000</td></tr><tr><td>nova_10</td><td>Rede neural</td><td>57</td><td>6</td><td>0,9869</td><td>0,8734</td><td>0,2198</td><td>0,0559</td><td>0,9298</td><td>0,6667</td><td>1,0000</td><td>0,3333</td><td>0,5000</td></tr><tr><td>nova_10</td><td>Logística</td><td>57</td><td>6</td><td>0,9902</td><td>0,9151</td><td>0,1827</td><td>0,0472</td><td>0,9298</td><td>0,6667</td><td>1,0000</td><td>0,3333</td><td>0,5000</td></tr><tr><td>nova_10</td><td>Random forest</td><td>57</td><td>6</td><td>0,9739</td><td>0,9048</td><td>0,2710</td><td>0,0724</td><td>0,8947</td><td>0,5000</td><td>0,0000</td><td>0,0000</td><td>0,0000</td></tr></tbody></table></div><p class="small">ROC-AUC e acurácia balanceada são omitidas quando o grupo não contém as duas classes. Recall e AP são omitidos quando não há positivos; precisão é zero quando nenhum positivo é previsto.</p><details><summary>Distribuição das linhas entre treino e teste</summary><div class="table-wrap"><table id="divisao-base"><thead><tr><th>Entrada</th><th>Treino</th><th>Teste</th><th>Relacionados no teste</th><th>Não relacionados no teste</th></tr></thead><tbody><tr><td>nova_01</td><td>225</td><td>57</td><td>24</td><td>33</td></tr><tr><td>nova_02</td><td>225</td><td>57</td><td>7</td><td>50</td></tr><tr><td>nova_03</td><td>225</td><td>57</td><td>9</td><td>48</td></tr><tr><td>nova_04</td><td>225</td><td>57</td><td>14</td><td>43</td></tr><tr><td>nova_05</td><td>225</td><td>57</td><td>8</td><td>49</td></tr><tr><td>nova_06</td><td>225</td><td>57</td><td>4</td><td>53</td></tr><tr><td>nova_07</td><td>225</td><td>57</td><td>7</td><td>50</td></tr><tr><td>nova_08</td><td>225</td><td>57</td><td>28</td><td>29</td></tr><tr><td>nova_09</td><td>225</td><td>57</td><td>10</td><td>47</td></tr><tr><td>nova_10</td><td>225</td><td>57</td><td>6</td><td>51</td></tr></tbody></table></div></details></section>
+<section id="valores-preditivos"><h2>VPP e VPN com as prevalências observadas</h2>
+<p>A prevalência global do teste é <strong>117/570 = 20,5263%</strong>. O valor preditivo positivo (VPP) é a proporção relacionada segundo Luna 6 entre os pares que o modelo marcou como relacionados. O valor preditivo negativo (VPN) é a proporção não relacionada segundo Luna 6 entre os pares que o modelo marcou como não relacionados. O limiar permanece em 0,5.</p>
+<p><code>VPP = Se × π / [Se × π + (1 − Sp) × (1 − π)]</code><br><code>VPN = Sp × (1 − π) / [Sp × (1 − π) + (1 − Se) × π]</code></p>
+<p class="small">Se = VP/(VP+FN); Sp = VN/(VN+FP). Usando a prevalência do mesmo grupo, os resultados de Bayes coincidem com VPP = VP/(VP+FP) e VPN = VN/(VN+FN), cujas frações aparecem nas tabelas. Denominador zero é exibido como indefinido; no CSV, o valor numérico fica vazio e a coluna de status registra indefinido.</p>
+<h3>Conjunto global de teste</h3><div class="table-wrap"><table id="valores-preditivos-global"><thead><tr><th>Modelo</th><th>N</th><th>Prevalência π</th><th>Sensibilidade Se</th><th>Especificidade Sp</th><th>VPP por Bayes</th><th>VPN por Bayes</th></tr></thead><tbody><tr><td>Rede neural</td><td>570</td><td>117/570<br>20,5263%</td><td>39,3162%</td><td>95,5850%</td><td>69,6970%<br><small>46/66</small></td><td>85,9127%<br><small>433/504</small></td></tr><tr><td>Logística</td><td>570</td><td>117/570<br>20,5263%</td><td>32,4786%</td><td>96,0265%</td><td>67,8571%<br><small>38/56</small></td><td>84,6304%<br><small>435/514</small></td></tr><tr><td>Random forest</td><td>570</td><td>117/570<br>20,5263%</td><td>20,5128%</td><td>98,4547%</td><td>77,4194%<br><small>24/31</small></td><td>82,7458%<br><small>446/539</small></td></tr></tbody></table></div>
+<h3>Por entrada, com a prevalência própria</h3><p>Cada entrada usa seus 57 pares de teste e sua própria prevalência de relação temática. São valores descritivos destes grupos; outra prevalência de aplicação pode alterar VPP e VPN.</p><div class="table-wrap"><table id="valores-preditivos-entrada"><thead><tr><th>Entrada</th><th>Modelo</th><th>N</th><th>Prevalência π</th><th>Sensibilidade Se</th><th>Especificidade Sp</th><th>VPP por Bayes</th><th>VPN por Bayes</th></tr></thead><tbody><tr><td>nova_01</td><td>Rede neural</td><td>57</td><td>24/57<br>42,1053%</td><td>58,3333%</td><td>75,7576%</td><td>63,6364%<br><small>14/22</small></td><td>71,4286%<br><small>25/35</small></td></tr><tr><td>nova_01</td><td>Logística</td><td>57</td><td>24/57<br>42,1053%</td><td>41,6667%</td><td>81,8182%</td><td>62,5000%<br><small>10/16</small></td><td>65,8537%<br><small>27/41</small></td></tr><tr><td>nova_01</td><td>Random forest</td><td>57</td><td>24/57<br>42,1053%</td><td>33,3333%</td><td>93,9394%</td><td>80,0000%<br><small>8/10</small></td><td>65,9574%<br><small>31/47</small></td></tr><tr><td>nova_02</td><td>Rede neural</td><td>57</td><td>7/57<br>12,2807%</td><td>14,2857%</td><td>100,0000%</td><td>100,0000%<br><small>1/1</small></td><td>89,2857%<br><small>50/56</small></td></tr><tr><td>nova_02</td><td>Logística</td><td>57</td><td>7/57<br>12,2807%</td><td>14,2857%</td><td>100,0000%</td><td>100,0000%<br><small>1/1</small></td><td>89,2857%<br><small>50/56</small></td></tr><tr><td>nova_02</td><td>Random forest</td><td>57</td><td>7/57<br>12,2807%</td><td>0,0000%</td><td>100,0000%</td><td>indefinido<br><small>0/0</small></td><td>87,7193%<br><small>50/57</small></td></tr><tr><td>nova_03</td><td>Rede neural</td><td>57</td><td>9/57<br>15,7895%</td><td>22,2222%</td><td>100,0000%</td><td>100,0000%<br><small>2/2</small></td><td>87,2727%<br><small>48/55</small></td></tr><tr><td>nova_03</td><td>Logística</td><td>57</td><td>9/57<br>15,7895%</td><td>22,2222%</td><td>100,0000%</td><td>100,0000%<br><small>2/2</small></td><td>87,2727%<br><small>48/55</small></td></tr><tr><td>nova_03</td><td>Random forest</td><td>57</td><td>9/57<br>15,7895%</td><td>0,0000%</td><td>100,0000%</td><td>indefinido<br><small>0/0</small></td><td>84,2105%<br><small>48/57</small></td></tr><tr><td>nova_04</td><td>Rede neural</td><td>57</td><td>14/57<br>24,5614%</td><td>7,1429%</td><td>100,0000%</td><td>100,0000%<br><small>1/1</small></td><td>76,7857%<br><small>43/56</small></td></tr><tr><td>nova_04</td><td>Logística</td><td>57</td><td>14/57<br>24,5614%</td><td>7,1429%</td><td>100,0000%</td><td>100,0000%<br><small>1/1</small></td><td>76,7857%<br><small>43/56</small></td></tr><tr><td>nova_04</td><td>Random forest</td><td>57</td><td>14/57<br>24,5614%</td><td>0,0000%</td><td>100,0000%</td><td>indefinido<br><small>0/0</small></td><td>75,4386%<br><small>43/57</small></td></tr><tr><td>nova_05</td><td>Rede neural</td><td>57</td><td>8/57<br>14,0351%</td><td>12,5000%</td><td>97,9592%</td><td>50,0000%<br><small>1/2</small></td><td>87,2727%<br><small>48/55</small></td></tr><tr><td>nova_05</td><td>Logística</td><td>57</td><td>8/57<br>14,0351%</td><td>0,0000%</td><td>95,9184%</td><td>0,0000%<br><small>0/2</small></td><td>85,4545%<br><small>47/55</small></td></tr><tr><td>nova_05</td><td>Random forest</td><td>57</td><td>8/57<br>14,0351%</td><td>0,0000%</td><td>100,0000%</td><td>indefinido<br><small>0/0</small></td><td>85,9649%<br><small>49/57</small></td></tr><tr><td>nova_06</td><td>Rede neural</td><td>57</td><td>4/57<br>7,0175%</td><td>50,0000%</td><td>96,2264%</td><td>50,0000%<br><small>2/4</small></td><td>96,2264%<br><small>51/53</small></td></tr><tr><td>nova_06</td><td>Logística</td><td>57</td><td>4/57<br>7,0175%</td><td>75,0000%</td><td>96,2264%</td><td>60,0000%<br><small>3/5</small></td><td>98,0769%<br><small>51/52</small></td></tr><tr><td>nova_06</td><td>Random forest</td><td>57</td><td>4/57<br>7,0175%</td><td>0,0000%</td><td>100,0000%</td><td>indefinido<br><small>0/0</small></td><td>92,9825%<br><small>53/57</small></td></tr><tr><td>nova_07</td><td>Rede neural</td><td>57</td><td>7/57<br>12,2807%</td><td>14,2857%</td><td>100,0000%</td><td>100,0000%<br><small>1/1</small></td><td>89,2857%<br><small>50/56</small></td></tr><tr><td>nova_07</td><td>Logística</td><td>57</td><td>7/57<br>12,2807%</td><td>0,0000%</td><td>100,0000%</td><td>indefinido<br><small>0/0</small></td><td>87,7193%<br><small>50/57</small></td></tr><tr><td>nova_07</td><td>Random forest</td><td>57</td><td>7/57<br>12,2807%</td><td>0,0000%</td><td>100,0000%</td><td>indefinido<br><small>0/0</small></td><td>87,7193%<br><small>50/57</small></td></tr><tr><td>nova_08</td><td>Rede neural</td><td>57</td><td>28/57<br>49,1228%</td><td>78,5714%</td><td>72,4138%</td><td>73,3333%<br><small>22/30</small></td><td>77,7778%<br><small>21/27</small></td></tr><tr><td>nova_08</td><td>Logística</td><td>57</td><td>28/57<br>49,1228%</td><td>67,8571%</td><td>75,8621%</td><td>73,0769%<br><small>19/26</small></td><td>70,9677%<br><small>22/31</small></td></tr><tr><td>nova_08</td><td>Random forest</td><td>57</td><td>28/57<br>49,1228%</td><td>57,1429%</td><td>82,7586%</td><td>76,1905%<br><small>16/21</small></td><td>66,6667%<br><small>24/36</small></td></tr><tr><td>nova_09</td><td>Rede neural</td><td>57</td><td>10/57<br>17,5439%</td><td>0,0000%</td><td>97,8723%</td><td>0,0000%<br><small>0/1</small></td><td>82,1429%<br><small>46/56</small></td></tr><tr><td>nova_09</td><td>Logística</td><td>57</td><td>10/57<br>17,5439%</td><td>0,0000%</td><td>97,8723%</td><td>0,0000%<br><small>0/1</small></td><td>82,1429%<br><small>46/56</small></td></tr><tr><td>nova_09</td><td>Random forest</td><td>57</td><td>10/57<br>17,5439%</td><td>0,0000%</td><td>100,0000%</td><td>indefinido<br><small>0/0</small></td><td>82,4561%<br><small>47/57</small></td></tr><tr><td>nova_10</td><td>Rede neural</td><td>57</td><td>6/57<br>10,5263%</td><td>33,3333%</td><td>100,0000%</td><td>100,0000%<br><small>2/2</small></td><td>92,7273%<br><small>51/55</small></td></tr><tr><td>nova_10</td><td>Logística</td><td>57</td><td>6/57<br>10,5263%</td><td>33,3333%</td><td>100,0000%</td><td>100,0000%<br><small>2/2</small></td><td>92,7273%<br><small>51/55</small></td></tr><tr><td>nova_10</td><td>Random forest</td><td>57</td><td>6/57<br>10,5263%</td><td>0,0000%</td><td>100,0000%</td><td>indefinido<br><small>0/0</small></td><td>89,4737%<br><small>51/57</small></td></tr></tbody></table></div>
+<p><a href="valores_preditivos_prevalencias.csv" download>VPP, VPN, prevalências e contagens · 33 grupos · CSV</a></p></section>
+<section id="metodo"><h2>Como interpretar esta comparação</h2><p>A classificação Luna 6 permanece binária: 1 para relação temática e 0 para ausência de relação. O alvo não foi normalizado. A transformação min–max foi estimada somente no treino; seus parâmetros foram aplicados ao teste. A busca de variáveis, interações e hiperparâmetros ocorreu dentro do treino, por validação cruzada em quatro partes, também separando tópicos inteiros. O critério principal foi o menor log loss médio de validação; ROC-AUC e AP são avaliações secundárias.</p><div class="table-wrap"><table id="selecao-modelos"><thead><tr><th>Modelo</th><th>Configurações avaliadas</th><th>Log loss médio na CV ↓</th><th>Parâmetros escolhidos</th></tr></thead><tbody><tr><td>Rede neural</td><td>6</td><td>0,3996</td><td><code>{&quot;modelo__alpha&quot;: 1.0, &quot;modelo__hidden_layer_sizes&quot;: [32]}</code></td></tr><tr><td>Logística</td><td>54</td><td>0,3968</td><td><code>{&quot;C&quot;: 1.0, &quot;degree&quot;: 1, &quot;k_main&quot;: 257}</code></td></tr><tr><td>Random forest</td><td>12</td><td>0,4062</td><td><code>{&quot;modelo__max_depth&quot;: null, &quot;modelo__max_features&quot;: 0.3, &quot;modelo__min_samples_leaf&quot;: 3}</code></td></tr></tbody></table></div><p class="small">Durante a busca, alguns candidatos da rede neural atingiram o limite de 1.500 iterações. O modelo final executou 333 iterações, com limite configurado de 1500. A seleção e eventuais ajustes de otimização ficaram restritos ao treino, sem usar o teste.</p><p><strong>A validação cruzada escolheu grau 1: o modelo final usa efeitos principais. Todos os 257 preditores principais foram mantidos. As alternativas com interações duplas e triplas foram avaliadas, mas não foram selecionadas pelo menor log loss médio. O teste foi mantido fora de toda seleção e ajuste dos três modelos; a comparação apresenta somente as versões finais congeladas.</strong></p><p>A divisão externa usa cinco partes estratificadas e agrupadas por tópico, com embaralhamento e semente 20261028; a primeira parte é o teste, aproximadamente 20% das linhas. Todos os dez pares de cada tópico ficam no mesmo lado. A presença das dez entradas no teste é preservada porque cada tópico foi classificado para todas elas.</p><p>Os preditores são a distância cosseno e os produtos coordenada a coordenada calculados com os valores originais. Os identificadores da entrada e do tópico servem à divisão e à avaliação; não são preditores. A distância cosseno mantém uma relação algébrica com a soma dos produtos para embeddings unitários, portanto estes preditores contêm redundância.</p><p>O teste estima o desempenho em tópicos novos para as dez entradas conhecidas. Para medir desempenho em entradas inéditas seria necessário separar entradas inteiras. A base usa rótulos produzidos pelo Luna e já participou de explorações anteriores. Nos dados de teste, o min–max ajustado no treino pode produzir valores abaixo de zero ou acima de um quando os valores originais excedem a faixa do treino.</p><p>A logística considera interações até a terceira ordem entre variáveis pré-selecionadas pelo desempenho de validação; a busca não enumera todas as combinações de 257 preditores. Coeficientes após seleção devem ser interpretados como exploratórios, condicionais à parametrização e regularização registradas no resultado. O limiar dos três modelos foi fixado em 0,5, sem otimização pelo teste.</p><details><summary>Parâmetros, seleção e rastreabilidade do ajuste</summary><pre>{
+  &quot;status&quot;: &quot;concluido_auditado&quot;,
+  &quot;data_utc&quot;: &quot;2026-10-29T01:07:51.609998+00:00&quot;,
+  &quot;divisao&quot;: {
+    &quot;semente&quot;: 20261028,
+    &quot;algoritmo&quot;: &quot;StratifiedGroupKFold(5), fold 0 reservado para teste, agrupado por topico_id&quot;,
+    &quot;treino&quot;: 2250,
+    &quot;teste&quot;: 570,
+    &quot;topicos_treino&quot;: 225,
+    &quot;topicos_teste&quot;: 57,
+    &quot;topicos_compartilhados&quot;: 0,
+    &quot;entradas_treino&quot;: 10,
+    &quot;entradas_teste&quot;: 10,
+    &quot;positivos_treino&quot;: 450,
+    &quot;positivos_teste&quot;: 117,
+    &quot;por_entrada&quot;: [
+      {
+        &quot;entrada_id&quot;: &quot;nova_01&quot;,
+        &quot;treino&quot;: 225,
+        &quot;teste&quot;: 57,
+        &quot;positivos_treino&quot;: 87,
+        &quot;positivos_teste&quot;: 24
+      },
+      {
+        &quot;entrada_id&quot;: &quot;nova_02&quot;,
+        &quot;treino&quot;: 225,
+        &quot;teste&quot;: 57,
+        &quot;positivos_treino&quot;: 25,
+        &quot;positivos_teste&quot;: 7
+      },
+      {
+        &quot;entrada_id&quot;: &quot;nova_03&quot;,
+        &quot;treino&quot;: 225,
+        &quot;teste&quot;: 57,
+        &quot;positivos_treino&quot;: 28,
+        &quot;positivos_teste&quot;: 9
+      },
+      {
+        &quot;entrada_id&quot;: &quot;nova_04&quot;,
+        &quot;treino&quot;: 225,
+        &quot;teste&quot;: 57,
+        &quot;positivos_treino&quot;: 40,
+        &quot;positivos_teste&quot;: 14
+      },
+      {
+        &quot;entrada_id&quot;: &quot;nova_05&quot;,
+        &quot;treino&quot;: 225,
+        &quot;teste&quot;: 57,
+        &quot;positivos_treino&quot;: 38,
+        &quot;positivos_teste&quot;: 8
+      },
+      {
+        &quot;entrada_id&quot;: &quot;nova_06&quot;,
+        &quot;treino&quot;: 225,
+        &quot;teste&quot;: 57,
+        &quot;positivos_treino&quot;: 41,
+        &quot;positivos_teste&quot;: 4
+      },
+      {
+        &quot;entrada_id&quot;: &quot;nova_07&quot;,
+        &quot;treino&quot;: 225,
+        &quot;teste&quot;: 57,
+        &quot;positivos_treino&quot;: 30,
+        &quot;positivos_teste&quot;: 7
+      },
+      {
+        &quot;entrada_id&quot;: &quot;nova_08&quot;,
+        &quot;treino&quot;: 225,
+        &quot;teste&quot;: 57,
+        &quot;positivos_treino&quot;: 108,
+        &quot;positivos_teste&quot;: 28
+      },
+      {
+        &quot;entrada_id&quot;: &quot;nova_09&quot;,
+        &quot;treino&quot;: 225,
+        &quot;teste&quot;: 57,
+        &quot;positivos_treino&quot;: 20,
+        &quot;positivos_teste&quot;: 10
+      },
+      {
+        &quot;entrada_id&quot;: &quot;nova_10&quot;,
+        &quot;treino&quot;: 225,
+        &quot;teste&quot;: 57,
+        &quot;positivos_treino&quot;: 33,
+        &quot;positivos_teste&quot;: 6
+      }
+    ],
+    &quot;inner_cv&quot;: &quot;4 folds agrupados por tópico; índices relativos ao treino externo&quot;,
+    &quot;valores_teste_fora_faixa_0_1&quot;: 241,
+    &quot;escopo&quot;: &quot;Tópicos novos para as mesmas dez entradas; não mede generalização para perguntas novas.&quot;,
+    &quot;fontes_sha256&quot;: {
+      &quot;C:\\Users\\dflav\\OneDrive\\Documentos\\ChatGPT\\autorag modelagem de embeddings\\base_produtos_originais_282x10_20261028\\base_produtos_originais.csv&quot;: &quot;4db653c10ca9f6fb7ee3c8c792809bafb63c42e35b0551ffb91a97d50d6bdeb9&quot;,
+      &quot;C:\\Users\\dflav\\OneDrive\\Documentos\\ChatGPT\\autorag modelagem de embeddings\\base_produtos_originais_282x10_20261028\\vinculos_linhas.json&quot;: &quot;3924c83c393f998cc31f22ef8b075e65e22ebcc6bafb6192bd19444b9c17e575&quot;,
+      &quot;C:\\Users\\dflav\\OneDrive\\Documentos\\ChatGPT\\autorag modelagem de embeddings\\base_produtos_originais_282x10_20261028\\esquema_base.json&quot;: &quot;4c47b22f2db9ccd6ed5f37031066d40826fc302442a2fef69963b803ae66d652&quot;,
+      &quot;C:\\Users\\dflav\\OneDrive\\Documentos\\ChatGPT\\autorag modelagem de embeddings\\base_produtos_originais_282x10_20261028\\auditoria.json&quot;: &quot;ed195c2691424d5367c119654ce5914fb426f8aad80e4169269b631875b95346&quot;
+    }
+  },
+  &quot;metodologia&quot;: {
+    &quot;alvo&quot;: &quot;Relação temática Luna:1 relacionado,0 não relacionado&quot;,
+    &quot;preditores&quot;: &quot;Distância cosseno e256produtos originais;257variáveis;IDs utilizados como metadados de divisão.&quot;,
+    &quot;split&quot;: &quot;Tópicos inteiros separados;fold0 do SGKF5;aproximadamente80%treino20%teste;mesmas10entradas emambos.&quot;,
+    &quot;selecao&quot;: &quot;Menor log-loss em quatro folds internos agrupados por tópico; minmax, ranking e ajuste refeitos em cada treino interno.&quot;,
+    &quot;minmax&quot;: &quot;Somente preditores; ajuste no treino, sem truncamento. O teste pode exceder [0,1].&quot;,
+    &quot;logistica&quot;: &quot;Ranking por AUC univariada no treino; CV escolhe k entre 8,16,32,64,128,257, grau 1,2,3 e C 0.1,1,10. L2; interações entre as seis variáveis mais bem ranqueadas.&quot;,
+    &quot;limiar_classificacao&quot;: 0.5,
+    &quot;teste_usado_para_selecao&quot;: false,
+    &quot;limitacoes&quot;: [
+      &quot;Teste mede tópicos novos para as mesmas dez entradas; não mede perguntas novas.&quot;,
+      &quot;Rótulos são avaliações Luna de relação temática, não avaliações humanas de utilidade.&quot;
+    ],
+    &quot;fontes&quot;: [
+      &quot;https://scikit-learn.org/stable/common_pitfalls.html&quot;,
+      &quot;https://scikit-learn.org/stable/modules/generated/sklearn.neural_network.MLPClassifier.html&quot;,
+      &quot;https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html&quot;
+    ],
+    &quot;ampliacao_logistica&quot;: {
+      &quot;definida_em&quot;: &quot;2026-10-29T00:52:30+00:00&quot;,
+      &quot;motivo&quot;: &quot;k=32 venceu na borda da busca inicial.&quot;,
+      &quot;teste_consultado_para_decidir_ampliacao&quot;: false,
+      &quot;configuracoes_totais&quot;: 54
+    }
+  },
+  &quot;modelos&quot;: {
+    &quot;logistica&quot;: {
+      &quot;melhores_parametros&quot;: {
+        &quot;C&quot;: 1.0,
+        &quot;degree&quot;: 1,
+        &quot;k_main&quot;: 257
+      },
+      &quot;log_loss_cv&quot;: 0.396774423959801,
+      &quot;configuracoes&quot;: 54,
+      &quot;tempo_segundos&quot;: 255.527,
+      &quot;modelo_arquivo&quot;: &quot;modelos\\logistica.joblib&quot;,
+      &quot;sha256_modelo&quot;: &quot;daf3432c15683de2cb379734f0001d3b2ea9fed13f0bd86b7b7e243ac35fe2c8&quot;,
+      &quot;avisos_convergencia&quot;: [],
+      &quot;reajuste_otimizacao_sem_teste&quot;: false,
+      &quot;ampliacao_definida_em&quot;: &quot;2026-10-29T00:52:30+00:00&quot;,
+      &quot;ampliacao_criterio&quot;: &quot;Melhor k inicial igual ao limite 32; testar 64,128,257 usando somente a mesma CV de treino.&quot;,
+      &quot;extensao_melhorou&quot;: true,
+      &quot;log_loss_cv_inicial&quot;: 0.41971849803659245,
+      &quot;resumo_extensao&quot;: &quot;extensao_logistica/resumo_extensao.json&quot;
+    },
+    &quot;random_forest&quot;: {
+      &quot;melhores_parametros&quot;: {
+        &quot;modelo__max_depth&quot;: null,
+        &quot;modelo__max_features&quot;: 0.3,
+        &quot;modelo__min_samples_leaf&quot;: 3
+      },
+      &quot;log_loss_cv&quot;: 0.4062164186771203,
+      &quot;configuracoes&quot;: 12,
+      &quot;tempo_segundos&quot;: 748.7030000000377,
+      &quot;modelo_arquivo&quot;: &quot;modelos\\random_forest.joblib&quot;,
+      &quot;sha256_modelo&quot;: &quot;db6959277408d466a910f7370369aca998dbc51d8f1a3652f3353b72f15751d2&quot;,
+      &quot;avisos_convergencia&quot;: [],
+      &quot;reajuste_otimizacao_sem_teste&quot;: false
+    },
+    &quot;rede_neural&quot;: {
+      &quot;melhores_parametros&quot;: {
+        &quot;modelo__alpha&quot;: 1.0,
+        &quot;modelo__hidden_layer_sizes&quot;: [
+          32
+        ]
+      },
+      &quot;log_loss_cv&quot;: 0.3996298820653472,
+      &quot;configuracoes&quot;: 6,
+      &quot;tempo_segundos&quot;: 189.53100000001723,
+      &quot;modelo_arquivo&quot;: &quot;modelos\\rede_neural.joblib&quot;,
+      &quot;sha256_modelo&quot;: &quot;2a2fd0b5556a8ca367a52b583c526fe7e6b9c78cb376d37316a0bfdf655ce99b&quot;,
+      &quot;avisos_convergencia&quot;: [],
+      &quot;reajuste_otimizacao_sem_teste&quot;: false,
+      &quot;n_iter&quot;: 333,
+      &quot;max_iter&quot;: 1500
+    }
+  },
+  &quot;metricas_teste&quot;: [
+    {
+      &quot;modelo&quot;: &quot;rede_neural&quot;,
+      &quot;roc_auc&quot;: 0.8527952302786739,
+      &quot;average_precision&quot;: 0.5736041965950254,
+      &quot;log_loss&quot;: 0.37321286489192207,
+      &quot;brier&quot;: 0.11698443116924402,
+      &quot;accuracy&quot;: 0.8403508771929824,
+      &quot;balanced_accuracy&quot;: 0.6745061413935586,
+      &quot;precision&quot;: 0.696969696969697,
+      &quot;recall&quot;: 0.39316239316239315,
+      &quot;f1&quot;: 0.5027322404371585,
+      &quot;tn&quot;: 433,
+      &quot;fp&quot;: 20,
+      &quot;fn&quot;: 71,
+      &quot;tp&quot;: 46,
+      &quot;n&quot;: 570
+    },
+    {
+      &quot;modelo&quot;: &quot;logistica&quot;,
+      &quot;roc_auc&quot;: 0.8496066111960151,
+      &quot;average_precision&quot;: 0.567628210647122,
+      &quot;log_loss&quot;: 0.375100342550058,
+      &quot;brier&quot;: 0.11883087575124263,
+      &quot;accuracy&quot;: 0.8298245614035088,
+      &quot;balanced_accuracy&quot;: 0.6425256127242882,
+      &quot;precision&quot;: 0.6785714285714286,
+      &quot;recall&quot;: 0.3247863247863248,
+      &quot;f1&quot;: 0.4393063583815029,
+      &quot;tn&quot;: 435,
+      &quot;fp&quot;: 18,
+      &quot;fn&quot;: 79,
+      &quot;tp&quot;: 38,
+      &quot;n&quot;: 570
+    },
+    {
+      &quot;modelo&quot;: &quot;random_forest&quot;,
+      &quot;roc_auc&quot;: 0.8597573630686214,
+      &quot;average_precision&quot;: 0.6439415604875235,
+      &quot;log_loss&quot;: 0.38532266493422235,
+      &quot;brier&quot;: 0.1191689187722837,
+      &quot;accuracy&quot;: 0.8245614035087719,
+      &quot;balanced_accuracy&quot;: 0.5948378332484293,
+      &quot;precision&quot;: 0.7741935483870968,
+      &quot;recall&quot;: 0.20512820512820512,
+      &quot;f1&quot;: 0.32432432432432434,
+      &quot;tn&quot;: 446,
+      &quot;fp&quot;: 7,
+      &quot;fn&quot;: 93,
+      &quot;tp&quot;: 24,
+      &quot;n&quot;: 570
+    }
+  ],
+  &quot;limiares&quot;: {
+    &quot;rede_neural&quot;: 0.5,
+    &quot;logistica&quot;: 0.5,
+    &quot;random_forest&quot;: 0.5
+  },
+  &quot;fontes_sha256&quot;: {
+    &quot;C:\\Users\\dflav\\OneDrive\\Documentos\\ChatGPT\\autorag modelagem de embeddings\\base_produtos_originais_282x10_20261028\\base_produtos_originais.csv&quot;: &quot;4db653c10ca9f6fb7ee3c8c792809bafb63c42e35b0551ffb91a97d50d6bdeb9&quot;,
+    &quot;C:\\Users\\dflav\\OneDrive\\Documentos\\ChatGPT\\autorag modelagem de embeddings\\base_produtos_originais_282x10_20261028\\vinculos_linhas.json&quot;: &quot;3924c83c393f998cc31f22ef8b075e65e22ebcc6bafb6192bd19444b9c17e575&quot;,
+    &quot;C:\\Users\\dflav\\OneDrive\\Documentos\\ChatGPT\\autorag modelagem de embeddings\\base_produtos_originais_282x10_20261028\\esquema_base.json&quot;: &quot;4c47b22f2db9ccd6ed5f37031066d40826fc302442a2fef69963b803ae66d652&quot;,
+    &quot;C:\\Users\\dflav\\OneDrive\\Documentos\\ChatGPT\\autorag modelagem de embeddings\\base_produtos_originais_282x10_20261028\\auditoria.json&quot;: &quot;ed195c2691424d5367c119654ce5914fb426f8aad80e4169269b631875b95346&quot;
+  },
+  &quot;codigo_sha256&quot;: {
+    &quot;C:\\Users\\dflav\\OneDrive\\Documentos\\ChatGPT\\autorag modelagem de embeddings\\comparar_modelos_produtos.py&quot;: &quot;8f57b0a4f231ed2b3adee367c7aba02bbe067b45ff7e0cbcd14b3090df363639&quot;,
+    &quot;C:\\Users\\dflav\\OneDrive\\Documentos\\ChatGPT\\autorag modelagem de embeddings\\modelo_logistica_preditiva_produtos.py&quot;: &quot;37919ce69d80c8276f4274349e215dff295200616db3cd165708128d85d5598f&quot;,
+    &quot;C:\\Users\\dflav\\OneDrive\\Documentos\\ChatGPT\\autorag modelagem de embeddings\\finalizar_comparacao_produtos.py&quot;: &quot;7872ab9486aa2bcd12e25c8b263f944f60921cf354cc22acd2a74535850ffeac&quot;,
+    &quot;C:\\Users\\dflav\\OneDrive\\Documentos\\ChatGPT\\autorag modelagem de embeddings\\comparacao_modelos_produtos_282x10_20261028\\extensao_logistica\\executar_extensao_logistica.py&quot;: &quot;f6d01b4819ef643f610368f737eaecd49618a93f293afe50e9b3c683bb35702e&quot;
+  },
+  &quot;versoes&quot;: {
+    &quot;python&quot;: &quot;3.11.2 (tags/v3.11.2:878ead1, Feb  7 2023, 16:38:35) [MSC v.1934 64 bit (AMD64)]&quot;,
+    &quot;numpy&quot;: &quot;2.4.6&quot;,
+    &quot;sklearn&quot;: &quot;1.9.1&quot;,
+    &quot;joblib&quot;: &quot;1.6.0&quot;
+  },
+  &quot;auditoria_independente&quot;: &quot;auditoria_independente.json&quot;,
+  &quot;auditoria_convergencia_rede_neural&quot;: &quot;auditoria_convergencia_rede_neural.json&quot;,
+  &quot;auditado_em_utc&quot;: &quot;2026-10-29T01:10:38.960983+00:00&quot;
+}</pre></details></section>
+<section id="arquivos"><h2>Dados e resultados salvos</h2><div class="downloads"><a href="LEIA_BASE.md" download>Guia dos dados e modelos</a><a href="predicoes_teste.csv" download>Probabilidades no teste</a><a href="metricas_teste.csv" download>Métricas do ajuste</a><a href="metricas_teste_relatorio.csv" download>Métricas conferidas pelo relatório</a><a href="metricas_por_entrada.csv" download>Métricas por entrada</a><a href="divisao_base.csv" download>Divisão treino e teste</a><a href="calibracao_faixas_teste.csv" download>Grupos de calibração</a><a href="resultado_comparacao.json" download>Método e resultados completos</a><a href="coeficientes_logistica.csv" download>Coeficientes da logística</a><a href="importancias_random_forest.csv" download>Importâncias do random forest</a><a href="base_minmax.csv" download>Base min–max</a><a href="treino_minmax.csv" download>Treino min–max</a><a href="teste_minmax.csv" download>Teste min–max</a><a href="parametros_minmax_treino.json" download>Parâmetros min–max</a></div><div class="downloads"><a href="auditoria_independente.json" download>Auditoria independente</a><a href="auditoria_convergencia_rede_neural.json" download>Auditoria da convergência neural</a></div><p class="small">Não foi produzida versão Excel. As tabelas estão disponíveis em CSV e o registro completo em JSON.</p></section></main><footer>Comparação local de classificadores com transformação min–max por dimensão. Relatório gerado a partir das probabilidades congeladas do conjunto de teste.</footer>
+<script>document.getElementById('filtro-entrada').addEventListener('change',function(){const value=this.value;document.querySelectorAll('#metricas-entrada tbody tr').forEach(row=>{row.hidden=value!==''&&row.cells[0].textContent!==value;});});</script></body></html>

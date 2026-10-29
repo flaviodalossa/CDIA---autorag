@@ -1,0 +1,173 @@
+{
+  "status": "aprovada",
+  "auditado_em_utc": "2026-10-29T01:10:38.960983+00:00",
+  "treino": 2250,
+  "teste": 570,
+  "topicos_treino": 225,
+  "topicos_teste": 57,
+  "teste_por_entrada": {
+    "nova_01": 57,
+    "nova_02": 57,
+    "nova_03": 57,
+    "nova_04": 57,
+    "nova_05": 57,
+    "nova_06": 57,
+    "nova_07": 57,
+    "nova_08": 57,
+    "nova_09": 57,
+    "nova_10": 57
+  },
+  "positivos_teste": 117,
+  "negativos_teste": 453,
+  "valores_teste_fora_intervalo_minmax": 241,
+  "verificacoes": [
+    "Fonte: 2820 pares, 257 preditores originais e rotulos Luna preservados.",
+    "Divisoes externa e quatro internas reproduzidas; nenhum topico cruza treino/validacao/teste; dez entradas no teste.",
+    "CSV, NPZ, scaler joblib e parametros JSON coincidem; min-max ajustado exclusivamente no treino externo, sem clipping.",
+    "Ampliacao logistica anterior a leitura do teste registrada; 54 configuracoes conferidas e vencedor global por CV integrado.",
+    "Tres modelos joblib reproduzem as probabilidades salvas e todas as metricas de teste.",
+    "Logistica JSON reproduz autonomamente a previsao; ranking, hierarquia e coeficientes conferidos.",
+    "Selecao registrada corresponde ao menor log-loss da CV; teste nao participa de ranking, ajuste, escolha ou limiar.",
+    "Melhor logistica reajustada independentemente nos quatro folds: ranking e scalers locais reproduzem os escores de validacao."
+  ],
+  "ampliacao_logistica": {
+    "configuracoes_totais": 54,
+    "decidida_em_utc": "2026-10-29T00:52:30Z",
+    "criterio": "Otimo inicial de k no limite superior; ampliacao decidida e realizada somente na CV de treino.",
+    "melhores_parametros": {
+      "C": 1.0,
+      "degree": 1,
+      "k_main": 257
+    },
+    "log_loss_cv_inicial": 0.41971849803659245,
+    "log_loss_cv_final": 0.396774423959801,
+    "108_fits_adicionais_convergiram": true
+  },
+  "modelos": {
+    "rede_neural": {
+      "probabilidade_max_erro": 2.220446049250313e-16,
+      "metricas": {
+        "roc_auc": 0.8527952302786739,
+        "average_precision": 0.5736041965950254,
+        "log_loss": 0.37321286489192207,
+        "brier": 0.11698443116924402,
+        "accuracy": 0.8403508771929824,
+        "balanced_accuracy": 0.6745061413935586,
+        "precision": 0.696969696969697,
+        "recall": 0.39316239316239315,
+        "f1": 0.5027322404371585,
+        "tn": 433,
+        "fp": 20,
+        "fn": 71,
+        "tp": 46,
+        "n": 570
+      },
+      "ajuste_final": {
+        "n_iter": 333,
+        "max_iter": 1500,
+        "convergiu_antes_limite": true
+      },
+      "cv_rede_neural_reproduzida_por_fold": [
+        {
+          "fold": 0,
+          "n_treino": 1680,
+          "n_validacao": 570,
+          "n_iter": 439,
+          "max_iter": 1500,
+          "atingiu_limite_iteracoes": false,
+          "convergiu_antes_limite": true,
+          "log_loss_reproduzido": 0.3681253441573513,
+          "log_loss_registrado_cv": 0.3681253441573513,
+          "avisos": []
+        },
+        {
+          "fold": 1,
+          "n_treino": 1700,
+          "n_validacao": 550,
+          "n_iter": 310,
+          "max_iter": 1500,
+          "atingiu_limite_iteracoes": false,
+          "convergiu_antes_limite": true,
+          "log_loss_reproduzido": 0.4200642359848183,
+          "log_loss_registrado_cv": 0.4200642359848183,
+          "avisos": []
+        },
+        {
+          "fold": 2,
+          "n_treino": 1690,
+          "n_validacao": 560,
+          "n_iter": 399,
+          "max_iter": 1500,
+          "atingiu_limite_iteracoes": false,
+          "convergiu_antes_limite": true,
+          "log_loss_reproduzido": 0.3924940401019099,
+          "log_loss_registrado_cv": 0.3924940401019099,
+          "avisos": []
+        },
+        {
+          "fold": 3,
+          "n_treino": 1680,
+          "n_validacao": 570,
+          "n_iter": 522,
+          "max_iter": 1500,
+          "atingiu_limite_iteracoes": false,
+          "convergiu_antes_limite": true,
+          "log_loss_reproduzido": 0.4178359080173094,
+          "log_loss_registrado_cv": 0.4178359080173094,
+          "avisos": []
+        }
+      ],
+      "folds_atingiram_limite_1500": [],
+      "todos_folds_convergiram_antes_limite": true
+    },
+    "logistica": {
+      "probabilidade_max_erro": 0.0,
+      "metricas": {
+        "roc_auc": 0.8496066111960151,
+        "average_precision": 0.567628210647122,
+        "log_loss": 0.375100342550058,
+        "brier": 0.11883087575124263,
+        "accuracy": 0.8298245614035088,
+        "balanced_accuracy": 0.6425256127242882,
+        "precision": 0.6785714285714286,
+        "recall": 0.3247863247863248,
+        "f1": 0.4393063583815029,
+        "tn": 435,
+        "fp": 18,
+        "fn": 79,
+        "tp": 38,
+        "n": 570
+      },
+      "cv_logistica_reproduzida_por_fold": [
+        0.37178382264988014,
+        0.4065577336287932,
+        0.3918441308180587,
+        0.41691200874247214
+      ],
+      "ranking_e_dois_minmax_verificados_somente_treino_de_cada_fold": true
+    },
+    "random_forest": {
+      "probabilidade_max_erro": 0.0,
+      "metricas": {
+        "roc_auc": 0.8597573630686214,
+        "average_precision": 0.6439415604875235,
+        "log_loss": 0.38532266493422235,
+        "brier": 0.1191689187722837,
+        "accuracy": 0.8245614035087719,
+        "balanced_accuracy": 0.5948378332484293,
+        "precision": 0.7741935483870968,
+        "recall": 0.20512820512820512,
+        "f1": 0.32432432432432434,
+        "tn": 446,
+        "fp": 7,
+        "fn": 93,
+        "tp": 24,
+        "n": 570
+      }
+    }
+  },
+  "limitacoes": [
+    "Codigo de treinamento revisado para verificar o uso de X_original e o ajuste local das pipelines na CV; os modelos finais nao armazenam os estimadores de todos os folds da rede/forest.",
+    "A avaliacao cobre topicos novos para as mesmas dez entradas, sem avaliar entradas novas."
+  ]
+}
