@@ -1,0 +1,44 @@
+{
+  "rede_neural": {
+    "fpr": 0.04415011037527594,
+    "tpr": 0.39316239316239315,
+    "limiar_global_unico": true,
+    "regra": "probabilidade >= 0.5"
+  },
+  "logistica": {
+    "fpr": 0.039735099337748346,
+    "tpr": 0.3247863247863248,
+    "limiar_global_unico": true,
+    "regra": "probabilidade >= 0.5"
+  },
+  "random_forest": {
+    "fpr": 0.01545253863134658,
+    "tpr": 0.20512820512820512,
+    "limiar_global_unico": true,
+    "regra": "probabilidade >= 0.5"
+  },
+  "cosseno_2k1": {
+    "fpr": 0.34216335540838855,
+    "tpr": 0.7606837606837606,
+    "limiar_global_unico": false,
+    "regra": "top min(2k+1,57) por pergunta"
+  },
+  "rede_neural_top2k1": {
+    "fpr": 0.31567328918322296,
+    "tpr": 0.8632478632478633,
+    "limiar_global_unico": false,
+    "regra": "top min(2k+1,57) por pergunta"
+  },
+  "logistica_top2k1": {
+    "fpr": 0.31346578366445915,
+    "tpr": 0.8717948717948718,
+    "limiar_global_unico": false,
+    "regra": "top min(2k+1,57) por pergunta"
+  },
+  "random_forest_top2k1": {
+    "fpr": 0.31346578366445915,
+    "tpr": 0.8717948717948718,
+    "limiar_global_unico": false,
+    "regra": "top min(2k+1,57) por pergunta"
+  }
+}
