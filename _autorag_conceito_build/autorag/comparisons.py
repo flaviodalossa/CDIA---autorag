@@ -21,6 +21,7 @@ import numpy as np
 from .core import (CATEGORIES, Project, category_text, digest, file_hash, normalize, now, read_json,
                    topics, uid, write_json, write_npz)
 from .assistance import capture_noise, filter_rows, noise_config, support_config
+from .document_expansion import full_document_enabled, expand_comparison
 from .experiments import save_input
 from .service import require_profile
 from .semantic import (_parameters, _thresholds, search_semantic, vector_search,
@@ -152,6 +153,7 @@ def consultation_config(project):
     result = read_json(path) if path.exists() else {"experiments": [], "analysis": _analysis(), "date": None}
     result.setdefault("support", support_config())
     result.setdefault("noise_filter", noise_config())
+    result.setdefault("full_document", False)
     return result
 
 
@@ -160,12 +162,13 @@ def active_experiments(project):
 
 
 def save_consultation_config(project, data):
-    if not isinstance(data, dict) or set(data) - {"experiments", "analysis", "support", "noise_filter"}:
+    if not isinstance(data, dict) or set(data) - {"experiments", "analysis", "support", "noise_filter", "full_document"}:
         raise ValueError("Configuração da consulta inválida.")
     current = consultation_config(project)
     output = {"schema_version": SCHEMA_VERSION, "date": now(),
               "experiments": _configs(project, data.get("experiments", []), empty=True),
               "analysis": _analysis(data.get("analysis")),
+              "full_document": full_document_enabled(data.get("full_document") if data.get("full_document") is not None else current.get("full_document")),
               "support": support_config(data.get("support") or current.get("support")), "noise_filter": noise_config(data.get("noise_filter") or current.get("noise_filter"))}
     with project.lock():
         write_json(project.root/"estudos"/"consultation-config.json", output)
@@ -173,7 +176,7 @@ def save_consultation_config(project, data):
 
 
 def save_preset(project, data):
-    if not isinstance(data, dict) or set(data) - {"id", "name", "experiments", "analysis", "active"}:
+    if not isinstance(data, dict) or set(data) - {"id", "name", "experiments", "analysis", "active", "full_document"}:
         raise ValueError("Configuração salva inválida.")
     name = data.get("name", "").strip() if isinstance(data.get("name"), str) else ""
     if not name or len(name) > 160:
@@ -182,7 +185,8 @@ def save_preset(project, data):
         raise ValueError("active deve ser booleano.")
     record = {"schema_version": SCHEMA_VERSION, "id": _identifier(data.get("id") or uid("preset")),
               "name": name, "date": now(), "experiments": _configs(project, data.get("experiments")),
-              "analysis": _analysis(data.get("analysis"))}
+              "analysis": _analysis(data.get("analysis")),
+              "full_document": full_document_enabled(data.get("full_document"))}
     with project.lock():
         write_json(_preset_path(project, record["id"]), record)
         if data.get("active"):
@@ -190,7 +194,8 @@ def save_preset(project, data):
             write_json(project.root/"estudos"/"consultation-config.json",
                        {"schema_version": SCHEMA_VERSION, "date": now(), "preset_id": record["id"],
                         "experiments": record["experiments"], "analysis": record["analysis"],
-                        "support": current["support"], "noise_filter": current["noise_filter"]})
+                        "support": current["support"], "noise_filter": current["noise_filter"],
+                        "full_document": record["full_document"] if "full_document" in data else current["full_document"]})
     return record
 
 
@@ -398,7 +403,7 @@ def _software():
             packages[package] = version(package)
         except PackageNotFoundError:
             packages[package] = None
-    return {"autorag": "0.3.0", "retrieval_pipeline": "independent-stages-1",
+    return {"autorag": "0.4.0", "retrieval_pipeline": "independent-stages-1",
             "python": platform.python_version(), "packages": packages}
 
 
@@ -417,6 +422,7 @@ def run_comparison(project, request, providers=None):
     configs = _configs(project, values)
     analysis_config = _analysis(request.get("analysis", preset.get("analysis") if preset else None))
     noise_settings = noise_config(request.get("noise_filter"))
+    full_document = full_document_enabled(request.get("full_document", preset.get("full_document") if preset else False))
     comparison_id = uid("comparison")
     folder = project.root/"estudos"/"comparacoes"/comparison_id
     snapshots, capture_errors, query_generations, noise_references = {}, {}, {}, {}
@@ -475,10 +481,11 @@ def run_comparison(project, request, providers=None):
               "base_snapshot_checksum": file_hash(folder/"base_snapshot.json"), "experiments": [],
               "configuration": {"experiments": configs,
                                 "analysis": analysis_config, "noise_filter": noise_settings}, "analysis_config": analysis_config,
-              "noise_filter": noise_settings,
+              "noise_filter": noise_settings, "full_document": full_document,
               "software": _software(),
               "analysis": {"status": "pending" if analysis_config["enabled"] else "disabled"}}
     _execute(output, configs, snapshots, capture_errors, mapping)
+    expand_comparison(output, mapping)
     save_comparison(project, output)
     return output
 
@@ -549,6 +556,7 @@ def _lines(comparison):
                          "experiment_id": experiment["experiment_id"], "experiment_name": experiment["config"]["name"],
                          "query": comparison["query"], "date": comparison["date"],
                          "base_revision": comparison.get("base_revision"), "base_checksum": comparison.get("base_checksum"),
+                         "full_document": comparison.get("full_document", False),
                          "config": experiment["config"], "result": row, "analysis": row.get("analysis"),
                          "provenance": [{key: space.get(key) for key in (
                              "profile_id", "profile", "profile_fingerprint", "indices", "input_reference", "input_checksum",
@@ -628,6 +636,7 @@ def export_comparison(project, comparison_id, format="json"):
         return json.dumps({"schema_version": SCHEMA_VERSION, "query": comparison["query"],
                            "experiments": [item["config"] for item in comparison["experiments"]],
                            "analysis": comparison["configuration"].get("analysis"),
+                           "full_document": comparison.get("full_document", False),
                            "base_revision": comparison.get("base_revision"), "base_checksum": comparison.get("base_checksum"),
                            "reproduction": "A reprodução salva usa o snapshot da base, os índices e o vetor de consulta originais. Versões de bibliotecas são registradas; novos embeddings também exigem os pesos e a preparação originais."},
                           ensure_ascii=False, indent=2, allow_nan=False) + "\n"
@@ -636,15 +645,15 @@ def export_comparison(project, comparison_id, format="json"):
         return "".join(json.dumps(row, ensure_ascii=False, allow_nan=False) + "\n" for row in rows)
     if format == "csv":
         stream = io.StringIO(newline="")
-        fields = ["comparison_id", "experiment_id", "experiment_name", "query", "date", "base_revision",
-                  "position", "topic_id", "title", "distance", "distance_space", "original_distance", "projected_distance", "cosine_similarity", "cosine_similarity_space", "fusion_score",
+        fields = ["comparison_id", "experiment_id", "experiment_name", "query", "date", "base_revision", "full_document",
+                  "result_origin", "document_id", "position", "topic_id", "title", "distance", "distance_space", "original_distance", "projected_distance", "cosine_similarity", "cosine_similarity_space", "fusion_score",
                   "classification", "relevant", "comment", "utility_rank", "analysis", "config", "provenance", "result"]
         writer = csv.DictWriter(stream, fieldnames=fields)
         writer.writeheader()
         for row in rows:
             result, analysis = row["result"], row["analysis"] or {}
             flat = {key: row.get(key) for key in fields if key in row}
-            flat.update({key: result.get(key) for key in ("position", "topic_id", "title", "distance", "distance_space", "original_distance", "projected_distance", "cosine_similarity", "cosine_similarity_space", "fusion_score")})
+            flat.update({key: result.get(key) for key in ("result_origin", "document_id", "position", "topic_id", "title", "distance", "distance_space", "original_distance", "projected_distance", "cosine_similarity", "cosine_similarity_space", "fusion_score")})
             flat.update({key: analysis.get(key) for key in ("classification", "relevant", "comment", "utility_rank")})
             for key in ("analysis", "config", "provenance", "result"):
                 flat[key] = json.dumps(row.get(key), ensure_ascii=False, allow_nan=False)
@@ -743,7 +752,9 @@ def reproduce_comparison(project, comparison_id):
     result["noise_filter"] = deepcopy(original.get("noise_filter", noise_config()))
     result["configuration"]["noise_filter"] = result["noise_filter"]
     result["support"] = {"status": "disabled", "answer": "Resposta de apoio não reexecutada na reprodução.", "topic_ids": []}
+    result["full_document"] = full_document_enabled(original.get("full_document", original["configuration"].get("full_document")))
     _execute(result, configs, snapshots, errors, mapping)
+    expand_comparison(result, mapping)
     save_comparison(project, result)
     return result
 
@@ -1004,6 +1015,10 @@ def export_vector_bundle(project, comparison_id, *, persist=True):
                     "query": comparison["query"], "base_revision": comparison["base_revision"],
                     "base_checksum": comparison["base_checksum"], "profiles": public_profiles,
                     "associations": associations, "software": comparison.get("software"),
+                    "context_only_topics": [{"experiment_id": e["experiment_id"], "topic_id": r["topic_id"], "document_id": r["document_id"],
+                                             "origin": "document_expansion", "vector_included": False}
+                                            for e in comparison["experiments"] for r in e.get("results", [])
+                                            if r.get("result_origin") == "document_expansion"],
                     "projections": [{key: value for key, value in projection.items() if key not in {"positions", "query", "matrix"}}
                                     for projection in projections.values()],
                     "numeric_policy": "Exact saved coordinates and dtypes; original effective arrays apply L2 normalization. UMAP arrays retain raw, unnormalized fitted coordinates per experiment and model.",

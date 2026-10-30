@@ -47,4 +47,4 @@ def package(destination):
 
 
 if __name__=='__main__':
-    package(sys.argv[1] if len(sys.argv)>1 else ROOT/'autorag-web-v0.3.zip')
+    package(sys.argv[1] if len(sys.argv)>1 else ROOT/'autorag-web-v0.4.zip')

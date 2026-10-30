@@ -48,7 +48,7 @@ async def lifespan(app):
     yield
 
 
-app = FastAPI(title="AutoRAG — bases normativas", version="0.3.0", lifespan=lifespan,
+app = FastAPI(title="AutoRAG — bases normativas", version="0.4.0", lifespan=lifespan,
               docs_url=None, redoc_url=None, openapi_url=None)
 
 
@@ -141,7 +141,7 @@ def submit(kind, function):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "version": "0.3.0"}
+    return {"status": "ok", "version": "0.4.0"}
 
 
 @app.get("/api/status")
@@ -329,6 +329,7 @@ class ExperimentBundleRequest(BaseModel):
     analysis: AnalysisRequest = Field(default_factory=AnalysisRequest)
     active: bool = Field(default=False, strict=True)
     id: str | None = Field(default=None, min_length=1, max_length=100)
+    full_document: bool | None = Field(default=None, strict=True)
 
 
 class NoiseRequest(BaseModel):
@@ -344,6 +345,7 @@ class ConsultationRequest(BaseModel):
     analysis: AnalysisRequest = Field(default_factory=AnalysisRequest)
     support: AnalysisRequest | None = None
     noise_filter: NoiseRequest | None = None
+    full_document: bool | None = Field(default=None, strict=True)
 
 
 class ComparisonRequest(BaseModel):
@@ -355,6 +357,7 @@ class ComparisonRequest(BaseModel):
     consultation: bool = Field(default=False, strict=True)
     support: AnalysisRequest | None = None
     noise_filter: NoiseRequest | None = None
+    full_document: bool | None = Field(default=None, strict=True)
 
 
 @app.get("/api/experiment-configs")
@@ -394,6 +397,7 @@ def _comparison_request(data):
     from autorag.comparisons import consultation_config, load_preset, validate_config
     from autorag.evaluation import validate_analysis_config
     from autorag.assistance import support_config, noise_config
+    from autorag.document_expansion import full_document_enabled
     data = deepcopy(data)
     if data.get("preset_id") and data.get("consultation"):
         raise ValueError("Escolha um conjunto salvo ou a configuração da consulta.")
@@ -403,6 +407,8 @@ def _comparison_request(data):
         with project.lock(wait_seconds=READ_LOCK_WAIT_SECONDS):
             preset = load_preset(project, data["preset_id"])
         data["experiments"] = deepcopy(preset["experiments"])
+        if data.get("full_document") is None:
+            data["full_document"] = preset.get("full_document", False)
         if data.get("analysis") is None:
             data["analysis"] = deepcopy(preset.get("analysis"))
         data.pop("preset_id", None)
@@ -413,6 +419,8 @@ def _comparison_request(data):
         with project.lock(wait_seconds=READ_LOCK_WAIT_SECONDS):
             current = consultation_config(project)
         data["experiments"] = deepcopy(current["experiments"]) or None
+        if data.get("full_document") is None:
+            data["full_document"] = current.get("full_document", False)
         if data.get("support") is None:
             data["support"] = deepcopy(current.get("support"))
         if data.get("noise_filter") is None:
@@ -426,6 +434,7 @@ def _comparison_request(data):
         raise ValueError("Os experimentos da comparação devem ter IDs diferentes.")
     data["analysis"] = validate_analysis_config(data.get("analysis"))
     data["noise_filter"] = noise_config(data.get("noise_filter"))
+    data["full_document"] = full_document_enabled(data.get("full_document"))
     data["support"] = support_config(data.get("support"), default_enabled=data.get("is_consultation", False))
     if not data["query"].strip():
         raise ValueError("Informe o texto da consulta.")
@@ -517,6 +526,7 @@ class SearchRequest(BaseModel):
     profile_id: str | None = Field(default=None, min_length=1, max_length=100)
     support: AnalysisRequest | None = None
     noise_filter: NoiseRequest | None = None
+    full_document: bool | None = Field(default=None, strict=True)
     categories: list[str] = Field(default_factory=lambda: ["conteudo_fonte"], min_length=1, max_length=9)
     mode: str = "vector"
     metric: str = Field(default="cosine", pattern="^(cosine|euclidean|manhattan)$")
@@ -547,12 +557,13 @@ def search(body: SearchRequest):
     if body.mode not in {"vector", "umap", "hdbscan", "semantic", "laboratory"} or any(c not in CATEGORIES for c in body.categories):
         raise ValueError("Modo ou categoria desconhecida.")
     if body.profile_id is None:
-        explicit = body.model_fields_set - {"query", "support", "noise_filter"}
+        explicit = body.model_fields_set - {"query", "support", "noise_filter", "full_document"}
         if explicit:
             raise ValueError("Informe profile_id para parâmetros explícitos ou envie somente query para usar a configuração de consulta.")
         data = _comparison_request({"query": body.query, "consultation": True,
                                     "support": body.support.model_dump() if body.support else None,
-                                    "noise_filter": body.noise_filter.model_dump() if body.noise_filter else None})
+                                    "noise_filter": body.noise_filter.model_dump() if body.noise_filter else None,
+                                    "full_document": body.full_document})
         return submit("comparison", lambda: _run_comparison(data))
     return submit("search", lambda: run_search(project, body.model_dump()))
 

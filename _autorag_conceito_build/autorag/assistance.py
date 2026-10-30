@@ -82,8 +82,9 @@ def answer_comparison(output, config=None, generator=None):
     try:
         context = [{"topic_id": row["topic_id"], "title": row.get("title", ""), "text": row.get("text", ""), "source": row.get("source", {})} for row in rows.values()]
         # Fail explicitly rather than silently omitting/truncating evidence.
-        if len(context) > 60 or any(len(row["text"]) > 20000 for row in context) or sum(len(row["text"]) for row in context) + len(output["query"]) > 180000:
-            raise LLMError("Contexto excede o limite da resposta de apoio (60 tópicos, 20000 caracteres por tópico e 180000 no total). Reduza o Top K.")
+        max_topics = 600 if output.get("full_document") else 60
+        if len(context) > max_topics or any(len(row["text"]) > 20000 for row in context) or sum(len(row["text"]) for row in context) + len(output["query"]) > 180000:
+            raise LLMError(f"Contexto excede o limite da resposta de apoio ({max_topics} tópicos, 20000 caracteres por tópico e 180000 no total). Reduza o Top K ou desative Trazer documento completo. Os tópicos recuperados foram preservados.")
         generate = generator or make_structured_generator({k: config[k] for k in ("provider", "model")}, instructions=ANSWER_INSTRUCTIONS, schema=ANSWER_SCHEMA, name="consultation_answer", max_output_tokens=6000)
         result = generate({"query": output["query"], "topics": context})
         if (set(result) != {"answer", "topic_ids"} or not isinstance(result["answer"], str) or

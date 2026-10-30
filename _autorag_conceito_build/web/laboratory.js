@@ -38,7 +38,8 @@
     const supplied = value.analysis_config || value.analysis || {};
     const analysis = {enabled: supplied.enabled === true, provider: supplied.provider || 'openai', model: supplied.model === undefined ? 'gpt-6-luna' : supplied.model};
     if (!['openai','ollama','openai_compatible'].includes(analysis.provider) || typeof analysis.model !== 'string' || analysis.model.length > 200 || (analysis.enabled && !analysis.model.trim())) throw new Error('Configuração de análise automática inválida.');
-    return {name: typeof value.name === 'string' ? value.name.slice(0,160) : '', experiments, analysis};
+    if (value.full_document != null && typeof value.full_document !== 'boolean') throw new Error('Trazer documento completo deve ser booleano.');
+    return {name: typeof value.name === 'string' ? value.name.slice(0,160) : '', experiments, analysis, ...(value.full_document != null ? {full_document:value.full_document} : {})};
   }
   function analysisLabel(value) {
     if (!value || value.status === 'not_requested' || value.status === 'disabled') return '';
@@ -145,7 +146,7 @@
     }
     function capture() {
       if (ui.editing >= 0) ui.drafts[ui.editing] = readEditor();
-      return normalizeBundle({experiments:ui.drafts,analysis:analysisConfig(),name:$('preset-name').value.trim()});
+      return normalizeBundle({experiments:ui.drafts,analysis:analysisConfig(),full_document:state.assistance?.settings().full_document ?? false,name:$('preset-name').value.trim()});
     }
     function saveEditor(event) {
       event?.preventDefault();
@@ -182,6 +183,7 @@
     function reuse(value) {
       const bundle = normalizeBundle(value);
       ui.loaded = true; ui.drafts = bundle.experiments; $('preset-name').value = bundle.name;
+      if (bundle.full_document != null) state.assistance?.setFullDocument(bundle.full_document);
       setAnalysis(bundle.analysis); writeEditor(ui.drafts[0], 0);
       inform('Configuração carregada no rascunho. Revise os parâmetros antes de executar ou usar na consulta.', 'success');
     }
@@ -198,7 +200,7 @@
       const button = $(useDefault ? 'use-default-search' : 'use-experiments'); button.disabled = true;
       try {
         const body = useDefault ? {experiments:[],analysis:{enabled:false,provider:'openai',model:'gpt-6-luna'}} : capture();
-        ui.active = await request('/api/consultation-config',{method:'PUT',body:{experiments:body.experiments,analysis:body.analysis}});
+        ui.active = await request('/api/consultation-config',{method:'PUT',body:{experiments:body.experiments,analysis:body.analysis,full_document:state.assistance?.settings().full_document}});
         describe(); inform(useDefault ? 'Consulta padrão restaurada: similaridade vetorial do conteúdo original.' : 'Experimentos salvos como parâmetros da consulta deste projeto.', 'success');
       } catch(error) { inform(error.message, 'error'); } finally { button.disabled = false; }
     }
@@ -250,6 +252,7 @@
       node.querySelectorAll('[data-comparison-export]').forEach(button => button.addEventListener('click',() => download(button.dataset.comparisonExport,button.dataset.format)));
       node.querySelector('[data-reproduce-comparison]').addEventListener('click',async event => { event.currentTarget.disabled = true; try { const result = await request('/api/comparisons/' + encodeURIComponent(data.comparison_id) + '/reproduce',{method:'POST',body:{}}); render(result,result.query,target); await refreshHistory(); inform('Recuperação reproduzida com os vetores e índices registrados, sem novas chamadas aos modelos.','success'); } catch(error) { inform(error.message,'error'); message(error.message,'error'); } finally { const button = node.querySelector('[data-reproduce-comparison]'); if(button) button.disabled = false; } });
       node.querySelector('[data-reuse-comparison]').addEventListener('click',() => { reuse(data); navigate('laboratorio'); });
+      if (data.full_document) { const box = document.createElement('p'); box.className = 'message'; box.textContent = 'Documento completo ativado. ' + records.map(e => { const m = e.document_expansion; return m ? e.name + ': ' + m.seed_count + ' tópicos encontrados e ' + m.added_count + ' acrescentados de ' + m.document_ids.length + ' documentos.' : ''; }).filter(Boolean).join(' '); node.prepend(box); }
       if (data.support?.status === 'noise') { const box = document.createElement('p'); box.className = 'message warning'; box.textContent = data.support.answer; node.prepend(box); }
       if (data.warnings?.length) { const box = document.createElement('div'); box.className = 'message warning'; box.textContent = data.warnings.join(' '); node.prepend(box); }
       const analysis = data.analysis || {};
@@ -261,7 +264,7 @@
       button.disabled = true; $('comparison-progress').hidden = false; inform('');
       try {
         const bundle = capture();
-        const result = await request('/api/comparisons',{method:'POST',body:{query,experiments:bundle.experiments,analysis:bundle.analysis,noise_filter:state.assistance?.settings().noise_filter},progress:text => { $('comparison-progress-label').textContent = text; }});
+        const result = await request('/api/comparisons',{method:'POST',body:{query,experiments:bundle.experiments,analysis:bundle.analysis,noise_filter:state.assistance?.settings().noise_filter,full_document:state.assistance?.settings().full_document},progress:text => { $('comparison-progress-label').textContent = text; }});
         render(result,query); await refreshHistory(); inform('Comparação salva com configurações, resultados e registros de análise disponíveis para download.', 'success');
       } catch(error) { inform(error.message, 'error'); }
       finally { button.disabled = !ui.drafts.length; $('comparison-progress').hidden = true; }

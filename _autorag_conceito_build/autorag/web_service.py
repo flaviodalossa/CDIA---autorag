@@ -15,7 +15,7 @@ SEMANTIC_CATEGORIES = ("perguntas_sugeridas", "resposta_sintese", "resumo", "con
 
 def status(project):
     base = project.base() if project.base_path.exists() else {"documentos": []}
-    return {"name": "AutoRAG", "version": "0.3.0", "documents": len(documents(base)),
+    return {"name": "AutoRAG", "version": "0.4.0", "documents": len(documents(base)),
             "topics": sum(1 for _ in topics(base)),
             "profiles": list(project.config()["perfis"].values()),
             "active_profile": project.config().get("perfil_ativo_id"),
@@ -174,9 +174,14 @@ def run_search(project, request, provider=None):
         output["noise_reference"] = noise
         output["semantic_results"] = filter_rows(output["semantic_results"], noise)
         output["baseline_results"] = filter_rows(output["baseline_results"], noise)
+    from .document_expansion import full_document_enabled, expand_documents
+    output["full_document"] = full_document_enabled(request.get("full_document"))
+    if output["full_document"]:
+        output["semantic_results"], output["document_expansion"] = expand_documents(output["semantic_results"], mapping)
+        output["baseline_results"], output["baseline_document_expansion"] = expand_documents(output["baseline_results"], mapping)
     support = support_config(request.get("support"), default_enabled=False)
     if support["enabled"] or noise_settings["enabled"]:
-        answer = answer_comparison({"query": query, "noise_filter": noise_settings, "experiments": [{"status": output["status"], "results": output["semantic_results"]}]}, support)
+        answer = answer_comparison({"query": query, "full_document": output["full_document"], "noise_filter": noise_settings, "experiments": [{"status": output["status"], "results": output["semantic_results"]}]}, support)
         output["support"] = answer["support"]
     if missing:
         output.setdefault("warnings", []).append("Categorias ainda não geradas: " + ", ".join(LABELS[c] for c in missing))

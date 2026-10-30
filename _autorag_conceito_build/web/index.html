@@ -25,7 +25,7 @@
     <div class="sidebar-bottom">
       <div class="base-health"><span class="status-dot" id="connection-dot"></span><strong id="connection-label">Conectando ao serviço</strong><p id="sidebar-count">Verificando sua base normativa</p></div>
       <button class="connection-button" id="open-settings" type="button" aria-label="Conexão e acesso" title="Conexão e acesso"><span aria-hidden="true">⚙</span> Conexão e acesso</button>
-      <span class="version">VERSÃO 0.3 · AUTO RAG</span>
+      <span class="version">VERSÃO 0.4 · AUTO RAG</span>
     </div>
   </aside>
   <div class="workspace">
@@ -33,10 +33,11 @@
     <main id="main" tabindex="-1">
       <div id="global-message" class="message" role="status" aria-live="polite" hidden></div>
       <section id="page-consulta" class="page" aria-labelledby="consulta-title">
-        <div class="page-heading"><div><p class="eyebrow">ENCONTRE FUNDAMENTOS. COMPARE EVIDÊNCIAS.</p><h1 id="consulta-title">O que você precisa consultar?</h1><p>Explore sua base normativa com contexto, fontes e resultados comparáveis.</p></div><span class="edition-badge"><span class="status-dot green"></span> AutoRAG / v3</span></div>
+        <div class="page-heading"><div><p class="eyebrow">ENCONTRE FUNDAMENTOS. COMPARE EVIDÊNCIAS.</p><h1 id="consulta-title">O que você precisa consultar?</h1><p>Explore sua base normativa com contexto, fontes e resultados comparáveis.</p></div><span class="edition-badge"><span class="status-dot green"></span> AutoRAG / v4</span></div>
         <div id="onboarding" class="onboarding" hidden><div class="onboarding-icon" aria-hidden="true">▤</div><div><h2>Sua próxima base começa aqui</h2><p>Adicione documentos de qualquer área ou órgão, revise os metadados e gere os vetores para começar a consultar.</p></div><button type="button" class="button primary" data-goto="preparar">Preparar primeira base <span aria-hidden="true">↗</span></button></div>
         <form id="search-form" class="search-card">
           <label class="input-label" for="query">SUA CONSULTA</label><textarea id="query" name="query" rows="3" placeholder="Descreva sua dúvida ou a situação que precisa analisar…" required maxlength="20000"></textarea>
+          <label class="checkbox-line full-document-toggle"><input type="checkbox" id="full-document"><span><strong>Trazer documento completo</strong><small>Ao recuperar um tópico, incluir todos os demais tópicos ativos do mesmo documento, também no contexto do LLM. A expansão pode ultrapassar o Top K.</small></span></label>
           <div class="search-bottom"><div class="search-context"><span class="method-icon" aria-hidden="true">✳</span><div><strong id="active-method">Similaridade vetorial do conteúdo original</strong><span id="active-selection">Cosseno · conteúdo-fonte · Top K 6</span></div></div><button class="button primary" id="search-button" type="submit"><span aria-hidden="true">⌕</span> Consultar base <span aria-hidden="true">↗</span></button></div>
         </form>
 <details class="panel assistance-settings"><summary>Resposta de apoio e limite por ruído</summary>

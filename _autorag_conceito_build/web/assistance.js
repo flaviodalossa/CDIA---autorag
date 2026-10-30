@@ -4,8 +4,9 @@
     let offset = 0, total = 0, topicQuery = '', loading = false, loaded = false, settingsEpoch = 0;
     let pendingSettings = Promise.resolve();
     const selectedTopics = new Set();
-    const settings = () => ({support:{enabled:$('support-enabled').checked, provider:$('support-provider').value, model:$('support-model').value.trim()}, noise_filter:{enabled:$('noise-enabled').checked, text:$('noise-text').value.trim(), margin:Number($('noise-margin').value)}});
+    const settings = () => ({full_document:$('full-document').checked,support:{enabled:$('support-enabled').checked, provider:$('support-provider').value, model:$('support-model').value.trim()}, noise_filter:{enabled:$('noise-enabled').checked, text:$('noise-text').value.trim(), margin:Number($('noise-margin').value)}});
     function setSettings(value) {
+      $('full-document').checked = value.full_document === true;
       const support = value.support || {enabled:true,provider:'openai',model:'gpt-6-luna'};
       $('support-enabled').checked = support.enabled;
       $('support-provider').value = support.provider;
@@ -118,6 +119,7 @@
     $('enrichment-refresh').addEventListener('click',refresh);
     $('enrichment-activate').addEventListener('click',() => activate(true)); $('enrichment-deactivate').addEventListener('click',() => activate(false));
     let edited = false;
+    $('full-document').addEventListener('change',() => {edited = true;});
     document.querySelector('.assistance-settings').addEventListener('input',() => {edited = true;});
     function refreshSettings(reset = false) {
       const epoch = ++settingsEpoch;
@@ -134,7 +136,7 @@
     }
     refreshSettings();
     updateMode();
-    return {settings,render,renderProfiles,ready:() => pendingSettings,resetConnection:() => refreshSettings(true),navigate:page => {if(page === 'laboratorio'){renderProfiles();refresh();if(!loaded){loaded = true;loadTopics();}}}};
+    return {settings,render,renderProfiles,setFullDocument:value => {$('full-document').checked = value === true;edited = true;},ready:() => pendingSettings,resetConnection:() => refreshSettings(true),navigate:page => {if(page === 'laboratorio'){renderProfiles();refresh();if(!loaded){loaded = true;loadTopics();}}}};
   }
   globalThis.AutoRAGAssistance = Object.freeze({init});
 })();

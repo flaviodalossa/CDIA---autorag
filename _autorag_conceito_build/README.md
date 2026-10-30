@@ -1,3 +1,7 @@
+# Atualização Web v0.4
+
+A opção **Trazer documento completo** inclui todos os tópicos ativos dos documentos com resultados aceitos. Veja [VERSAO_0_4.md](VERSAO_0_4.md) para uso, interação com ruído e limites do contexto.
+
 # Atualização Web v0.3
 
 A resposta fundamentada na Consulta, o filtro por referência de ruído e o enriquecimento vetorial manual/automático estão descritos em [VERSAO_0_3.md](VERSAO_0_3.md). O LLM de apoio padrão é gpt-6-luna; enriquecimentos novos entram como rascunhos.

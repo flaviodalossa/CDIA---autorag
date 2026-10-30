@@ -121,7 +121,7 @@ class ComparisonAPITests(unittest.TestCase):
         result = self.wait_job(self.client.post("/api/search", json={"query": "Consulta normativa"}))
         self.assertEqual(result["experiments"][0]["config"]["mode"], "vector")
         self.assertEqual(result["experiments"][0]["config"]["categories"], ["conteudo_fonte"])
-        self.assertEqual(self.client.get("/health").json()["version"], "0.3.0")
+        self.assertEqual(self.client.get("/health").json()["version"], "0.4.0")
 
     def test_three_experiments_persist_and_download_all_formats(self):
         result = self.wait_job(self.client.post("/api/comparisons", json={

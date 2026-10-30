@@ -1,4 +1,8 @@
-# AutoRAG Web v0.3
+# AutoRAG Web v0.4
+
+A Consulta agora oferece **Trazer documento completo**, incluindo os demais tópicos ativos dos documentos encontrados, também no contexto do LLM. Veja [_autorag_conceito_build/VERSAO_0_4.md](_autorag_conceito_build/VERSAO_0_4.md).
+
+# Recursos da v0.3
 
 A nova versão acrescenta resposta do LLM de apoio na Consulta, filtro de similaridade por texto de ruído e enriquecimentos vetoriais no Laboratório, com associação manual, pelo LLM ou em loop. Veja [_autorag_conceito_build/VERSAO_0_3.md](_autorag_conceito_build/VERSAO_0_3.md) para uso, persistência e API.
 
