@@ -23,7 +23,9 @@ def validate_limits(top_k=5, minimum=None, maximum=None):
         raise ValueError("Escore mínimo maior que máximo.")
 
 
-def save_input(project, value, profile, provider=None, regenerate=False):
+def save_input(project, value, profile, provider=None, regenerate=False, *, role="consulta"):
+    if role not in {"consulta", "documento"}:
+        raise ValueError("Papel do embedding de entrada inválido.")
     if not value.strip():
         raise ValueError("Texto da consulta está vazio.")
     entry_id = "ent_" + digest(value)[:24]
@@ -32,7 +34,7 @@ def save_input(project, value, profile, provider=None, regenerate=False):
     metadata = read_json(metadata_path) if metadata_path.exists() else {
         "schema_version": "1.0", "entrada_id": entry_id, "texto_original": value,
         "hash_texto_original": digest(value), "data": now(), "geracoes": {}, "execucoes": []}
-    key = profile["perfil_id"] + "::consulta"
+    key = profile["perfil_id"] + "::" + role
     previous = metadata["geracoes"].get(key, [])
     if previous and not regenerate:
         record = previous[-1]
@@ -48,8 +50,8 @@ def save_input(project, value, profile, provider=None, regenerate=False):
     write_json(metadata_path, metadata)
     try:
         backend = provider or get_provider(profile)
-        segments = [part for part, _, _ in backend.segments(value, "consulta")]
-        originals = np.asarray(backend.embed(segments, "consulta"))
+        segments = [part for part, _, _ in backend.segments(value, role)]
+        originals = np.asarray(backend.embed(segments, role))
         normalized = normalize(originals, profile["dimensoes"])
         if len(originals) != len(segments):
             raise ValueError("Quantidade de vetores de entrada incorreta.")
@@ -62,14 +64,14 @@ def save_input(project, value, profile, provider=None, regenerate=False):
     original_aggregate = originals.mean(axis=0, keepdims=True)
     aggregate = normalize(original_aggregate, profile["dimensoes"])
     generation_id = uid("ger")
-    path = folder/profile["perfil_id"]/"consulta"/generation_id/"vetores.npz"
-    embedding_id = entry_id+"::consulta::"+generation_id
+    path = folder/profile["perfil_id"]/role/generation_id/"vetores.npz"
+    embedding_id = entry_id+"::"+role+"::"+generation_id
     write_npz(path, vetores=aggregate, vetores_originais=original_aggregate,
               vetores_segmentos=normalized, vetores_segmentos_originais=originals,
               embedding_ids=np.asarray([embedding_id], dtype=np.str_))
     record = {"geracao_id": generation_id, "perfil_id": profile["perfil_id"],
-              "perfil": deepcopy(profile), "papel": "consulta", "data": now(),
-              "hash_texto_preparado": digest([backend.prepare(t, "consulta") for t in segments]),
+              "perfil": deepcopy(profile), "papel": role, "data": now(),
+              "hash_texto_preparado": digest([backend.prepare(t, role) for t in segments]),
               "segmentos": segments, "quantidade_segmentos": len(segments),
               "agregacao": "nenhuma" if len(segments) == 1 else "media_segmentos_originais_seguida_l2",
               "vetor_entrada": {"embedding_id": embedding_id, "arquivo_npz": project.relative(path),

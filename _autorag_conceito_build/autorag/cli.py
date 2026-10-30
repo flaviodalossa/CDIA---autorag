@@ -45,7 +45,7 @@ def main(argv=None):
     sub.add_parser("inventario")
     gen = sub.add_parser("gerar")
     gen.add_argument("--perfil", required=True)
-    gen.add_argument("--categorias", nargs="+", required=True, choices=CATEGORIES)
+    gen.add_argument("--categorias", nargs="+", required=True, choices=[c for c in CATEGORIES if c != "enriquecimento_recuperacao"])
     gen.add_argument("--operacao", choices=["faltantes", "atualizar", "regenerar"], default="atualizar")
     gen.add_argument("--topicos", nargs="+")
     gen.add_argument("--documentos", nargs="+")

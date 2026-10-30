@@ -234,6 +234,8 @@ def generate(project, profile_id, categories, operation="atualizar", topic_ids=N
              document_ids=None, batch_size=16, simulate=False, progress=None, provider=None):
     if not categories or any(category not in CATEGORIES for category in categories):
         raise ValueError("Selecione pelo menos uma categoria conhecida.")
+    if "enriquecimento_recuperacao" in categories:
+        raise ValueError("Adicione e ative os enriquecimentos na aba Laboratório.")
     if operation not in {"faltantes", "atualizar", "regenerar"} or batch_size <= 0:
         raise ValueError("Operação ou tamanho de lote inválido.")
     profile = require_profile(project, profile_id)

@@ -43,6 +43,7 @@ class ComparisonAPITests(unittest.TestCase):
         self.patches = [
             patch.object(api, "project", self.project), patch.object(api, "executor", self.worker),
             patch.object(api, "jobs", {}), patch("autorag.experiments.get_provider", return_value=self.provider),
+            patch("autorag.assistance.make_structured_generator", side_effect=api.LLMError("Apoio simulado indisponível neste teste.")),
             patch.dict(os.environ, {"AUTORAG_API_TOKEN": "test-token-for-comparison-http-with-32-characters",
                                     "AUTORAG_ENV": "development"})]
         for item in self.patches:
@@ -120,7 +121,7 @@ class ComparisonAPITests(unittest.TestCase):
         result = self.wait_job(self.client.post("/api/search", json={"query": "Consulta normativa"}))
         self.assertEqual(result["experiments"][0]["config"]["mode"], "vector")
         self.assertEqual(result["experiments"][0]["config"]["categories"], ["conteudo_fonte"])
-        self.assertEqual(self.client.get("/health").json()["version"], "0.2.0")
+        self.assertEqual(self.client.get("/health").json()["version"], "0.3.0")
 
     def test_three_experiments_persist_and_download_all_formats(self):
         result = self.wait_job(self.client.post("/api/comparisons", json={

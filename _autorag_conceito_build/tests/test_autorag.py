@@ -79,11 +79,13 @@ class LabTests(unittest.TestCase):
         self.assertEqual(changed, [CATEGORIES[1], "palavras_chave"])
 
     def test_eight_independent_categories_and_metadata_deduplication(self):
-        for category in CATEGORIES:
+        source_categories = [c for c in CATEGORIES if c != "enriquecimento_recuperacao"]
+        for category in source_categories:
             self.gen([category])
             self.assertIsNotNone(self.project.current("pf_teste", category))
-        self.assertEqual(len(inventory(self.project)), 8)
-        self.assertTrue(all(row["atuais"] == 3 for row in inventory(self.project)))
+        self.assertEqual(len(inventory(self.project)), 9)
+        self.assertTrue(all(row["atuais"] == 3 for row in inventory(self.project) if row["categoria"] in source_categories))
+        self.assertIsNone(self.project.current("pf_teste", "enriquecimento_recuperacao"))
         self.assertEqual(len(self.provider.calls[-1][0]), 1)  # documento tem metadados comuns
         for path in self.project.root.rglob("*.json"):
             content = read_json(path)

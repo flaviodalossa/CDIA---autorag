@@ -15,7 +15,7 @@ SEMANTIC_CATEGORIES = ("perguntas_sugeridas", "resposta_sintese", "resumo", "con
 
 def status(project):
     base = project.base() if project.base_path.exists() else {"documentos": []}
-    return {"name": "AutoRAG", "version": "0.2.0", "documents": len(documents(base)),
+    return {"name": "AutoRAG", "version": "0.3.0", "documents": len(documents(base)),
             "topics": sum(1 for _ in topics(base)),
             "profiles": list(project.config()["perfis"].values()),
             "active_profile": project.config().get("perfil_ativo_id"),
@@ -71,7 +71,7 @@ def present_results(rows, mapping):
         if not categories and comparisons:
             categories = sorted({r["categoria"] for r in comparisons})
         distance = row.get("distance", row.get("distancia", row.get("distancia_cosseno_media", row.get("distancia_cosseno"))))
-        result.append({**row, "topic_id": topic_id, "title": topic.get("titulo", row.get("title", row.get("titulo", ""))),
+        result.append({**row, "cosine_similarity": row.get("cosine_similarity", row.get("similaridade_cosseno", row.get("similaridade_media"))), "topic_id": topic_id, "title": topic.get("titulo", row.get("title", row.get("titulo", ""))),
                        "text": topic.get("conteudo_fonte", row.get("text", "")),
                        "summary": topic.get("resumo", ""), "distance": distance,
                        "categories": categories,
@@ -84,6 +84,9 @@ def present_results(rows, mapping):
 def run_search(project, request, provider=None):
     """Snapshot a single profile. Never mix coordinate spaces from distinct models."""
     from .semantic import search_semantic
+    from .assistance import capture_noise, noise_config, support_config, filter_rows, answer_comparison
+    request = deepcopy(request)
+    noise_settings = noise_config(request.get("noise_filter"))
     profile_id, query = request["profile_id"], request["query"]
     mode = request.get("mode", "vector")
     categories = request.get("categories") or list(SEMANTIC_CATEGORIES if mode in {"semantic", "umap", "hdbscan"} else DEFAULT_CATEGORIES)
@@ -100,6 +103,13 @@ def run_search(project, request, provider=None):
         if not vectors:
             raise ValueError("Gere os embeddings das categorias escolhidas antes de consultar.")
         entry, generation, query_vector = save_input(project, query, profile, provider)
+        noise = capture_noise(project, query_vector, profile, noise_settings, provider)
+    if noise:
+        threshold = min(1.0, noise["threshold"] + 1e-12)
+        request["minimum_similarity"] = max(request.get("minimum_similarity") if request.get("minimum_similarity") is not None else request.get("minimum") if request.get("minimum") is not None else -1, threshold)
+        request["minimum"] = request["minimum_similarity"]
+        if request.get("maximum") is not None:
+            request["minimum"] = min(request["minimum"], request["maximum"])
     options = {k: request[k] for k in ("metric", "n_neighbors", "n_components", "min_dist", "min_cluster_size",
                "min_samples", "random_state", "dendrogram", "umap_metric", "cluster_metric",
                "cluster_selection_method", "allow_single_cluster") if k in request}
@@ -159,6 +169,15 @@ def run_search(project, request, provider=None):
             output["projection"] = output["projection"]["points"]
         else:
             output["projection"] = []
+    output["noise_filter"] = noise_settings
+    if noise:
+        output["noise_reference"] = noise
+        output["semantic_results"] = filter_rows(output["semantic_results"], noise)
+        output["baseline_results"] = filter_rows(output["baseline_results"], noise)
+    support = support_config(request.get("support"), default_enabled=False)
+    if support["enabled"] or noise_settings["enabled"]:
+        answer = answer_comparison({"query": query, "noise_filter": noise_settings, "experiments": [{"status": output["status"], "results": output["semantic_results"]}]}, support)
+        output["support"] = answer["support"]
     if missing:
         output.setdefault("warnings", []).append("Categorias ainda não geradas: " + ", ".join(LABELS[c] for c in missing))
     if excluded:

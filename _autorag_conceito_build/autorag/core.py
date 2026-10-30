@@ -21,7 +21,7 @@ class ProjectBusyError(RuntimeError):
 CATEGORIES = (
     "topico_total_sem_palavras_chave", "topico_total_com_palavras_chave",
     "resumo", "conteudo_fonte", "perguntas_sugeridas", "resposta_sintese",
-    "palavras_chave", "metadados",
+    "palavras_chave", "metadados", "enriquecimento_recuperacao",
 )
 LABELS = {
     "topico_total_sem_palavras_chave": "Tópico total sem palavras-chave",
@@ -29,6 +29,7 @@ LABELS = {
     "resumo": "Resumo", "conteudo_fonte": "Conteúdo-fonte",
     "perguntas_sugeridas": "Perguntas sugeridas", "resposta_sintese": "Resposta-síntese",
     "palavras_chave": "Palavras-chave", "metadados": "Metadados",
+    "enriquecimento_recuperacao": "Enriquecimento de recuperação",
 }
 
 
@@ -152,6 +153,8 @@ def category_text(topic, document, category):
         fields += [("eixos", meta.get("eixos") or meta.get("eixo")), ("idioma", meta.get("idioma"))]
         fields += [(name, validity.get(name)) for name in ("inicio_vigencia", "fim_vigencia")]
         return "\n".join(f"{name}: {text(value)}" for name, value in fields if text(value))
+    if category == "enriquecimento_recuperacao":
+        return text(topic.get("titulo")) + "\n" + text(topic.get("conteudo_fonte"))
     value = topic.get(category)
     if category == "perguntas_sugeridas" and isinstance(value, list):
         return "\n".join(text(item) for item in value if text(item))

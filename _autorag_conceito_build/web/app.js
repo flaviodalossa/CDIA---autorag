@@ -4,7 +4,7 @@
   const DEFAULT_CATEGORIES = ['perguntas_sugeridas', 'resposta_sintese', 'resumo', 'conteudo_fonte'];
   const CATEGORY_LABELS = {
     perguntas_sugeridas: 'Perguntas sugeridas', resposta_sintese: 'Resposta-síntese', resumo: 'Resumo', conteudo_fonte: 'Conteúdo-fonte',
-    topico_total_sem_palavras_chave: 'Tópico total sem palavras-chave', topico_total_com_palavras_chave: 'Tópico total com palavras-chave', palavras_chave: 'Palavras-chave', metadados: 'Metadados'
+    topico_total_sem_palavras_chave: 'Tópico total sem palavras-chave', topico_total_com_palavras_chave: 'Tópico total com palavras-chave', palavras_chave: 'Palavras-chave', metadados: 'Metadados', enriquecimento_recuperacao: 'Enriquecimento de recuperação'
   };
   const DEFAULT = { categories: ['conteudo_fonte'], mode: 'vector', metric: 'cosine', top_k: 6, n_neighbors: 15, min_cluster_size: 5, min_samples: 2, n_components: 5, dendrogram: false };
   const state = { status: null, categories: Object.entries(CATEGORY_LABELS).map(([id, label]) => ({id, label})), config: {...DEFAULT, categories: [...DEFAULT.categories], profile_id: ''}, results: null, resultQuery: '', preview: null, previewForm: null, selectedExperiment: null, selectedFiles: [], searchController: null, activePage: 'consulta', ingestRevision: 0 };
@@ -91,12 +91,13 @@
     if (page === 'laboratorio') { refreshHistory(); if (!state.models) refreshModels(); }
     if (page === 'preparar' && !state.llms) refreshLLMs();
     state.lab?.navigate(page);
+    state.assistance?.navigate(page);
   }
   function renderCategories() {
     for (const name of ['search', 'generate']) {
       const selected = name === 'search' ? state.config.categories : DEFAULT_CATEGORIES;
       const container = $(name + '-categories'); container.replaceChildren();
-      state.categories.forEach(category => {
+      state.categories.filter(category => name !== 'generate' || category.id !== 'enriquecimento_recuperacao').forEach(category => {
         const wrapper = document.createElement('label'); wrapper.className = 'category-option';
         const input = document.createElement('input'); input.type = 'checkbox'; input.name = name + '-category'; input.value = category.id; input.checked = selected.includes(category.id);
         const text = document.createElement('span'); text.textContent = category.label;
@@ -135,7 +136,7 @@
       $('onboarding').hidden = docCount > 0;
       $('sources-help').textContent = data.local_paths_enabled === false ? 'Uma URL por linha ou envie arquivos abaixo. Caminhos locais estão desabilitados neste ambiente.' : 'Uma fonte por linha. Caminhos locais devem existir no servidor da aplicação. Para arquivos do seu computador, use o envio abaixo.';
       if (!state.config.profile_id && data.active_profile) state.config.profile_id = data.active_profile;
-      renderProfiles(data.profiles || data.perfis); renderInventory(data.inventory); state.lab?.renderProfiles();
+      renderProfiles(data.profiles || data.perfis); renderInventory(data.inventory); state.lab?.renderProfiles(); state.assistance?.renderProfiles();
       if (state.models) renderModels();
       $('generation-state').textContent = docCount + ' documentos · ' + topicCount + ' tópicos na base atual.';
       if (!quiet) message('');
@@ -166,6 +167,7 @@
     return '<article class="result-card"><div class="result-topline"><span class="rank">' + String(index + 1).padStart(2, '0') + ' / TÓPICO</span><span class="distance">Distância <b>' + number(row.distance ?? row.distancia) + '</b></span></div>' + distanceNote + '<h4>' + esc(title) + '</h4><p class="result-text result-snippet">' + esc(text) + '</p>' + (text.length > 250 ? '<details><summary>Ler conteúdo recuperado</summary><p class="result-text">' + esc(text) + '</p></details>' : '') + (semantic || categories.length ? '<div class="category-chips">' + (semantic ? '<span class="category-chip match-count">' + esc(count) + (Number(count) === 1 ? ' categoria no grupo' : ' categorias no grupo') + '</span>' : '') + categories.map(category => '<span class="category-chip">' + esc(label(typeof category === 'string' ? category : category.id || category.categoria)) + '</span>').join('') + '</div>' : '') + sourceMarkup(row) + '</article>';
   }
   function renderResults(data, query) {
+    state.assistance?.render(data);
     if (state.lab?.isComparison(data)) { state.lab.render(data,query,'consultation'); return; }
     state.lab?.hideConsultation();
     state.results = data; state.resultQuery = query;
@@ -243,7 +245,8 @@
     const controller = new AbortController(); state.searchController = controller;
     setBusy('search-button', true, 'search-progress'); $('search-progress-label').textContent = 'Executando a recuperação configurada…'; message('');
     try {
-      const result = await request('/api/search', {method:'POST', body:{query}, signal:controller.signal, progress: text => $('search-progress-label').textContent = text});
+      await state.assistance?.ready();
+      const result = await request('/api/search', {method:'POST', body:{query,...state.assistance?.settings()}, signal:controller.signal, progress: text => $('search-progress-label').textContent = text});
       renderResults(result, query); refreshHistory();
     } catch (error) { message(isAbort(error) ? 'A espera foi interrompida. O processamento já iniciado pode continuar no servidor; consulte o histórico antes de repetir.' : error.message, isAbort(error) ? 'warning' : 'error'); }
     finally { state.searchController = null; setBusy('search-button', false, 'search-progress'); }
@@ -596,7 +599,7 @@
     if (raw) { const url = new URL(raw); if (!['https:','http:'].includes(url.protocol) || url.username || url.password || url.search || url.hash) { message('Informe uma URL HTTP ou HTTPS, sem credenciais, parâmetros ou fragmentos.', 'error'); return; } }
     backend = raw; token = $('access-token').value.trim(); session.set('autorag_backend',backend); session.set('autorag_token',token);
     state.models = null; state.llms = null;
-    $('settings-dialog').close(); refreshStatus(); state.lab?.refresh();
+    $('settings-dialog').close(); state.assistance?.resetConnection(); refreshStatus(); state.lab?.refresh();
     if (state.activePage === 'laboratorio') refreshModels();
     if (state.activePage === 'preparar') refreshLLMs();
   }
@@ -626,6 +629,7 @@
   $('open-experiment').addEventListener('click',() => {const data = state.selectedExperiment;renderResults(experimentResult(data),data.query || data.texto_original_entrada || 'Experimento salvo');$('experiment-dialog').close();navigate('consulta');});
   window.addEventListener('hashchange',() => navigate(location.hash.slice(1),false));
   renderCategories();
+  state.assistance = AutoRAGAssistance.init({$,request,message,state,esc,number,refreshStatus});
   state.lab = AutoRAGLaboratory.init({$,request,message,state,esc,label,number,date,navigate,resultCard,renderProjection,renderDendrogram,download:downloadAuthenticated});
   updateActiveDescription(); navigate(location.hash.slice(1),false); refreshStatus();
 })();

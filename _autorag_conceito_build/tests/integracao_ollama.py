@@ -33,7 +33,7 @@ def main():
         for profile_id, profile in local_profiles.items():
             started = time.perf_counter()
             print("Verificando oito categorias:", profile["modelo"], flush=True)
-            generate(lab, profile_id, list(CATEGORIES), batch_size=3)
+            generate(lab, profile_id, [c for c in CATEGORIES if c != "enriquecimento_recuperacao"], batch_size=3)
             rows = [row for row in inventory(lab) if row["perfil_id"]==profile_id]
             assert len(rows)==8 and all(row["atuais"]==3 for row in rows)
             result = search(lab, profile_id, ["resumo", "conteudo_fonte", "palavras_chave"],

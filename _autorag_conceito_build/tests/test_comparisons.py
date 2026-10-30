@@ -93,7 +93,7 @@ class ComparisonTests(unittest.TestCase):
         self.assertEqual(len(result["experiments"]), 3)
         self.assertTrue(all(experiment["status"] == "ok" for experiment in result["experiments"]))
         self.assertTrue(result["base_checksum"])
-        self.assertEqual(result["software"]["autorag"], "0.2.0")
+        self.assertEqual(result["software"]["autorag"], "0.3.0")
         self.assertEqual(load_comparison(self.project, result["comparison_id"], verify=True), result)
         for experiment in result["experiments"]:
             self.assertTrue(experiment["spaces"][0]["indices"]["conteudo_fonte"]["checksum"])

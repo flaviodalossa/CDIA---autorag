@@ -48,7 +48,7 @@ async def lifespan(app):
     yield
 
 
-app = FastAPI(title="AutoRAG — bases normativas", version="0.2.0", lifespan=lifespan,
+app = FastAPI(title="AutoRAG — bases normativas", version="0.3.0", lifespan=lifespan,
               docs_url=None, redoc_url=None, openapi_url=None)
 
 
@@ -141,7 +141,7 @@ def submit(kind, function):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "version": "0.2.0"}
+    return {"status": "ok", "version": "0.3.0"}
 
 
 @app.get("/api/status")
@@ -331,10 +331,19 @@ class ExperimentBundleRequest(BaseModel):
     id: str | None = Field(default=None, min_length=1, max_length=100)
 
 
+class NoiseRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    enabled: bool = Field(default=False, strict=True)
+    text: str = Field(default="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.", min_length=1, max_length=12000)
+    margin: float = Field(default=0.0, ge=0, le=2)
+
+
 class ConsultationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     experiments: list[dict] = Field(default_factory=list, max_length=3)
     analysis: AnalysisRequest = Field(default_factory=AnalysisRequest)
+    support: AnalysisRequest | None = None
+    noise_filter: NoiseRequest | None = None
 
 
 class ComparisonRequest(BaseModel):
@@ -344,6 +353,8 @@ class ComparisonRequest(BaseModel):
     preset_id: str | None = Field(default=None, min_length=1, max_length=100)
     analysis: AnalysisRequest | None = None
     consultation: bool = Field(default=False, strict=True)
+    support: AnalysisRequest | None = None
+    noise_filter: NoiseRequest | None = None
 
 
 @app.get("/api/experiment-configs")
@@ -382,6 +393,7 @@ def _comparison_request(data):
     """Freeze presets/settings at receipt; all runs retain their exact configuration."""
     from autorag.comparisons import consultation_config, load_preset, validate_config
     from autorag.evaluation import validate_analysis_config
+    from autorag.assistance import support_config, noise_config
     data = deepcopy(data)
     if data.get("preset_id") and data.get("consultation"):
         raise ValueError("Escolha um conjunto salvo ou a configuração da consulta.")
@@ -395,11 +407,16 @@ def _comparison_request(data):
             data["analysis"] = deepcopy(preset.get("analysis"))
         data.pop("preset_id", None)
     elif data.pop("consultation", False):
+        data["is_consultation"] = True
         if data.get("experiments") is not None:
             raise ValueError("Escolha a configuração de consulta ou experimentos explícitos.")
         with project.lock(wait_seconds=READ_LOCK_WAIT_SECONDS):
             current = consultation_config(project)
         data["experiments"] = deepcopy(current["experiments"]) or None
+        if data.get("support") is None:
+            data["support"] = deepcopy(current.get("support"))
+        if data.get("noise_filter") is None:
+            data["noise_filter"] = deepcopy(current.get("noise_filter"))
         if data.get("analysis") is None:
             data["analysis"] = deepcopy(current.get("analysis"))
     if data.get("experiments") is not None:
@@ -408,6 +425,8 @@ def _comparison_request(data):
     if data.get("experiments") and len({config["id"] for config in data["experiments"]}) != len(data["experiments"]):
         raise ValueError("Os experimentos da comparação devem ter IDs diferentes.")
     data["analysis"] = validate_analysis_config(data.get("analysis"))
+    data["noise_filter"] = noise_config(data.get("noise_filter"))
+    data["support"] = support_config(data.get("support"), default_enabled=data.get("is_consultation", False))
     if not data["query"].strip():
         raise ValueError("Informe o texto da consulta.")
     return data
@@ -418,7 +437,14 @@ def _run_comparison(data):
     from autorag.evaluation import evaluate_comparison
     output = run_comparison(project, data)
     output["analysis_config"] = deepcopy(data["analysis"])
-    output = evaluate_comparison(output, data.get("analysis"))
+    from autorag.assistance import answer_comparison
+    if data["noise_filter"]["enabled"] and not any(e.get("results") for e in output["experiments"]):
+        output["analysis"] = {"status": "skipped_noise", "reason": "Nenhum tópico superou a referência de ruído."}
+    else:
+        output = evaluate_comparison(output, data.get("analysis"))
+    if data.get("is_consultation") or data["support"]["enabled"] or data["noise_filter"]["enabled"]:
+        output = answer_comparison(output, data["support"])
+    output["configuration"]["support"] = data["support"]
     save_comparison(project, output)
     return output
 
@@ -489,7 +515,9 @@ class SearchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     query: str = Field(min_length=1, max_length=50000)
     profile_id: str | None = Field(default=None, min_length=1, max_length=100)
-    categories: list[str] = Field(default_factory=lambda: ["conteudo_fonte"], min_length=1, max_length=8)
+    support: AnalysisRequest | None = None
+    noise_filter: NoiseRequest | None = None
+    categories: list[str] = Field(default_factory=lambda: ["conteudo_fonte"], min_length=1, max_length=9)
     mode: str = "vector"
     metric: str = Field(default="cosine", pattern="^(cosine|euclidean|manhattan)$")
     top_k: int = Field(default=6, ge=1, le=100)
@@ -519,10 +547,12 @@ def search(body: SearchRequest):
     if body.mode not in {"vector", "umap", "hdbscan", "semantic", "laboratory"} or any(c not in CATEGORIES for c in body.categories):
         raise ValueError("Modo ou categoria desconhecida.")
     if body.profile_id is None:
-        explicit = body.model_fields_set - {"query"}
+        explicit = body.model_fields_set - {"query", "support", "noise_filter"}
         if explicit:
             raise ValueError("Informe profile_id para parâmetros explícitos ou envie somente query para usar a configuração de consulta.")
-        data = _comparison_request({"query": body.query, "consultation": True})
+        data = _comparison_request({"query": body.query, "consultation": True,
+                                    "support": body.support.model_dump() if body.support else None,
+                                    "noise_filter": body.noise_filter.model_dump() if body.noise_filter else None})
         return submit("comparison", lambda: _run_comparison(data))
     return submit("search", lambda: run_search(project, body.model_dump()))
 
@@ -606,7 +636,7 @@ async def ingest(request: Request):
 class GenerateRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     profile_id: str
-    categories: list[str] = Field(min_length=1, max_length=8)
+    categories: list[str] = Field(min_length=1, max_length=9)
     operation: str = Field(default="atualizar", pattern="^(faltantes|atualizar|regenerar)$")
     simulate: bool = False
     batch_size: int = Field(default=16, ge=1, le=128)
@@ -653,6 +683,58 @@ def experiment(execution_id: str):
     if not path.exists():
         raise HTTPException(404, "Experimento não encontrado.")
     return read_json(path)
+
+
+
+class EnrichmentRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    text: str = Field(min_length=1, max_length=12000)
+    profile_ids: list[str] = Field(min_length=1, max_length=12)
+    topic_ids: list[str] = Field(default_factory=list, max_length=30)
+    mode: str = Field(default="manual", pattern="^(manual|automatic|loop)$")
+    iterations: int = Field(default=1, ge=1, le=30)
+    llm: AnalysisRequest | None = None
+
+
+class EnrichmentActivation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    entry_ids: list[str] = Field(min_length=1, max_length=100)
+    active: bool = Field(strict=True)
+
+
+@app.get("/api/enrichment/topics")
+def enrichment_topics(query: str = "", offset: int = 0, limit: int = 100):
+    from autorag.enrichment import topic_choices
+    if len(query) > 2000 or offset < 0 or not 1 <= limit <= 200:
+        raise ValueError("Paginação ou filtro de tópicos inválido.")
+    with project.lock(wait_seconds=READ_LOCK_WAIT_SECONDS):
+        return topic_choices(project, query, offset, limit)
+
+
+@app.get("/api/enrichments")
+def enrichment_entries():
+    from autorag.enrichment import list_entries
+    with project.lock(wait_seconds=READ_LOCK_WAIT_SECONDS):
+        return {"entries": list_entries(project)}
+
+
+@app.post("/api/enrichments")
+def enrich_topics(body: EnrichmentRequest):
+    from autorag.enrichment import run_enrichment
+    return submit("enrichment", lambda: run_enrichment(project, body.model_dump(exclude_none=True)))
+
+
+@app.patch("/api/enrichments/activation")
+def activate_enrichment(body: EnrichmentActivation):
+    from autorag.enrichment import set_active
+    return submit("enrichment-activation", lambda: set_active(project, body.entry_ids, body.active))
+
+
+@app.get("/api/enrichment-runs")
+def enrichment_runs():
+    with project.lock(wait_seconds=READ_LOCK_WAIT_SECONDS):
+        rows = [read_json(p) for p in (project.root/"estudos"/"enrichment_runs").glob("*.json")]
+    return {"runs": sorted(rows, key=lambda r: r["date"], reverse=True)[:100]}
 
 
 app.mount("/", StaticFiles(directory=str(APP_ROOT/"web"), html=True), name="frontend")

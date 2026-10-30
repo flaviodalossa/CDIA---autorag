@@ -1,3 +1,7 @@
+# Atualização Web v0.3
+
+A resposta fundamentada na Consulta, o filtro por referência de ruído e o enriquecimento vetorial manual/automático estão descritos em [VERSAO_0_3.md](VERSAO_0_3.md). O LLM de apoio padrão é gpt-6-luna; enriquecimentos novos entram como rascunhos.
+
 # AutoRAG v0.2
 
 UMAP e HDBSCAN são etapas independentes no laboratório: vetorial direto, somente UMAP (distância na projeção), somente HDBSCAN (agrupamento original) e UMAP + HDBSCAN (agrupamento na projeção, distância original). O laboratório de médias também continua disponível. Parâmetros, espaços das métricas e coordenadas UMAP acompanham a reprodução e o download. O dendrograma está disponível nos dois modos com HDBSCAN.

@@ -94,7 +94,7 @@ class Application(tk.Tk):
         self.batch = tk.StringVar(value="16")
         ttk.Entry(gen, textvariable=self.batch, width=6).grid(row=0, column=5)
         self.generate_categories = {}
-        for number, category in enumerate(CATEGORIES):
+        for number, category in enumerate(c for c in CATEGORIES if c != "enriquecimento_recuperacao"):
             variable = tk.BooleanVar(value=category == CATEGORIES[0])
             self.generate_categories[category] = variable
             ttk.Checkbutton(gen, text=LABELS[category], variable=variable).grid(row=1+number//4, column=number%4, sticky="w", pady=2)

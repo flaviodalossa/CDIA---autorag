@@ -41,3 +41,11 @@ test('forwards authenticated consultation settings PUT and keeps other methods r
  try{const response=await worker.fetch(req('/api/consultation-config',{method:'PUT',headers,body:JSON.stringify({experiments:[],analysis:{enabled:false}})}),env);assert.equal(response.status,200);assert.equal(calls,1);assert.equal((await worker.fetch(req('/api/status',{method:'PUT',headers,body:'{}'}),env)).status,405);assert.equal((await worker.fetch(req('/api/consultation-config',{method:'PUT',body:'{}'}),env)).status,401);assert.equal(calls,1);}
  finally{globalThis.fetch=prior;}
 });
+
+test('forwards authenticated enrichment activation PATCH and restricts other PATCH routes',async()=>{
+ const prior=globalThis.fetch;let calls=0;
+ globalThis.fetch=async(target,options)=>{calls++;assert.equal(target.pathname,'/api/enrichments/activation');assert.equal(options.method,'PATCH');assert.deepEqual(JSON.parse(new TextDecoder().decode(options.body)),{entry_ids:['enrichment_1'],active:true});return Response.json({job_id:'job_activation'},{status:202});};
+ const env={BACKEND_URL:'https://api.example'};const headers={Authorization:'Bearer local-token','Content-Type':'application/json'};
+ try {assert.equal((await worker.fetch(req('/api/enrichments/activation',{method:'PATCH',headers,body:JSON.stringify({entry_ids:['enrichment_1'],active:true})}),env)).status,202);assert.equal(calls,1);assert.equal((await worker.fetch(req('/api/enrichments/activation',{method:'PATCH',body:'{}'}),env)).status,401);assert.equal((await worker.fetch(req('/api/status',{method:'PATCH',headers,body:'{}'}),env)).status,405);assert.equal(calls,1);}
+ finally{globalThis.fetch=prior;}
+});

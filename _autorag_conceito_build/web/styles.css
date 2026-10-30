@@ -25,3 +25,17 @@
 @media(max-width:600px){.comparison-column{padding:10px}.comparison-actions>.button,.comparison-downloads>.button{width:100%;justify-content:center}.experiment-editor .form-actions{align-items:stretch}.comparison-column-heading h3{font-size:18px}.experiment-slots{gap:10px}.slot-actions .text-button{padding:6px 0}}
 
 .model-category-choice{margin:18px 0}.model-category-group{border:1px solid var(--line);border-radius:10px;padding:12px;margin:14px 0}.model-category-group legend{font-size:12px;color:var(--ink);padding:0 5px}.model-category-group .category-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+
+/* Consultation support and opt-in enrichment */
+.assistance-settings { margin-top: 18px; }
+.assistance-settings summary { cursor:pointer; font-weight:650; }
+.support-answer { margin: 20px 0; border-left:4px solid #19705b; }
+.support-answer .answer-body { white-space:pre-wrap; line-height:1.7; overflow-wrap:anywhere; }
+.enrichment-panel { margin-top:24px; }
+.enrichment-panel fieldset { margin:18px 0; }
+.enrichment-topics { max-height:330px; overflow:auto; display:grid; gap:8px; margin:12px 0; }
+.enrichment-topics label { display:flex; gap:10px; align-items:flex-start; padding:8px; border-bottom:1px solid #e3e8e6; }
+.enrichment-topics input { width:auto; margin-top:4px; }
+.enrichment-panel td { max-width:300px; overflow-wrap:anywhere; }
+.enrichment-panel td input { width:auto; }
+.enrichment-panel pre { white-space:pre-wrap; overflow-wrap:anywhere; max-height:300px; overflow:auto; }

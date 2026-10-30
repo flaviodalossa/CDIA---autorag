@@ -21,3 +21,5 @@ node_modules/
 jobs/
 *.zip
 previews/
+
+.pnpm-store/

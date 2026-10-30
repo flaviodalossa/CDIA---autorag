@@ -1,4 +1,8 @@
-# AutoRAG Web v0.2
+# AutoRAG Web v0.3
+
+A nova versão acrescenta resposta do LLM de apoio na Consulta, filtro de similaridade por texto de ruído e enriquecimentos vetoriais no Laboratório, com associação manual, pelo LLM ou em loop. Veja [_autorag_conceito_build/VERSAO_0_3.md](_autorag_conceito_build/VERSAO_0_3.md) para uso, persistência e API.
+
+# Recursos anteriores · v0.2
 
 A aplicação fica em _autorag_conceito_build. A versão web compara até três experimentos por entrada, salva configurações reutilizáveis, registra avaliações opcionais de LLM e permite baixar os resultados e os vetores numéricos usados. Os aplicativos desktop, CLI e experimentos anteriores continuam disponíveis.
 

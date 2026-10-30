@@ -20,6 +20,7 @@ import numpy as np
 
 from .core import (CATEGORIES, Project, category_text, digest, file_hash, normalize, now, read_json,
                    topics, uid, write_json, write_npz)
+from .assistance import capture_noise, filter_rows, noise_config, support_config
 from .experiments import save_input
 from .service import require_profile
 from .semantic import (_parameters, _thresholds, search_semantic, vector_search,
@@ -148,7 +149,10 @@ def _preset_path(project, preset_id):
 
 def consultation_config(project):
     path = project.root/"estudos"/"consultation-config.json"
-    return read_json(path) if path.exists() else {"experiments": [], "analysis": _analysis(), "date": None}
+    result = read_json(path) if path.exists() else {"experiments": [], "analysis": _analysis(), "date": None}
+    result.setdefault("support", support_config())
+    result.setdefault("noise_filter", noise_config())
+    return result
 
 
 def active_experiments(project):
@@ -156,11 +160,13 @@ def active_experiments(project):
 
 
 def save_consultation_config(project, data):
-    if not isinstance(data, dict) or set(data) - {"experiments", "analysis"}:
+    if not isinstance(data, dict) or set(data) - {"experiments", "analysis", "support", "noise_filter"}:
         raise ValueError("Configuração da consulta inválida.")
+    current = consultation_config(project)
     output = {"schema_version": SCHEMA_VERSION, "date": now(),
               "experiments": _configs(project, data.get("experiments", []), empty=True),
-              "analysis": _analysis(data.get("analysis"))}
+              "analysis": _analysis(data.get("analysis")),
+              "support": support_config(data.get("support") or current.get("support")), "noise_filter": noise_config(data.get("noise_filter") or current.get("noise_filter"))}
     with project.lock():
         write_json(project.root/"estudos"/"consultation-config.json", output)
     return output
@@ -180,9 +186,11 @@ def save_preset(project, data):
     with project.lock():
         write_json(_preset_path(project, record["id"]), record)
         if data.get("active"):
+            current = consultation_config(project)
             write_json(project.root/"estudos"/"consultation-config.json",
                        {"schema_version": SCHEMA_VERSION, "date": now(), "preset_id": record["id"],
-                        "experiments": record["experiments"], "analysis": record["analysis"]})
+                        "experiments": record["experiments"], "analysis": record["analysis"],
+                        "support": current["support"], "noise_filter": current["noise_filter"]})
     return record
 
 
@@ -296,6 +304,10 @@ def _space(snapshot, config, mapping):
     profile_id = snapshot["profile"]["perfil_id"]
     config = {**config, "categories": list(_model_categories(config, profile_id))}
     vectors, query_vector = snapshot["vectors"], snapshot["query_vector"]
+    noise = snapshot.get("noise_reference")
+    if noise:
+        cutoff = min(1.0, float(np.nextafter(noise["threshold"], np.inf)))
+        config["minimum_similarity"] = max(config["minimum_similarity"] if config["minimum_similarity"] is not None else -1.0, cutoff)
     depth = config["fusion_depth"] if len(config["profile_ids"]) > 1 else config["top_k"]
     mode, metric = config["mode"], config["metric"]
     args = {"top_k": depth, "minimum_similarity": config["minimum_similarity"],
@@ -338,6 +350,10 @@ def _space(snapshot, config, mapping):
         output["warnings"].append(f'{snapshot["excluded"]} vetores inativos ou desatualizados excluídos.')
     if "conteudo_fonte" in snapshot["missing"]:
         output["warnings"].append("Baseline indisponível: gere vetores de conteudo_fonte.")
+    if noise:
+        output["noise_reference"] = deepcopy(noise)
+        rows = filter_rows(rows, noise)
+        baseline = filter_rows(baseline, noise)
     output["results"] = _enrich(rows, mapping, vectors, profile_id)
     output["baseline_results"] = _enrich(baseline, mapping, vectors, profile_id)
     return output
@@ -382,7 +398,7 @@ def _software():
             packages[package] = version(package)
         except PackageNotFoundError:
             packages[package] = None
-    return {"autorag": "0.2.0", "retrieval_pipeline": "independent-stages-1",
+    return {"autorag": "0.3.0", "retrieval_pipeline": "independent-stages-1",
             "python": platform.python_version(), "packages": packages}
 
 
@@ -400,9 +416,10 @@ def run_comparison(project, request, providers=None):
                    "profile_ids": [profile_id], "categories": ["conteudo_fonte"], "metric": "cosine", "top_k": 6}]
     configs = _configs(project, values)
     analysis_config = _analysis(request.get("analysis", preset.get("analysis") if preset else None))
+    noise_settings = noise_config(request.get("noise_filter"))
     comparison_id = uid("comparison")
     folder = project.root/"estudos"/"comparacoes"/comparison_id
-    snapshots, capture_errors, query_generations = {}, {}, {}
+    snapshots, capture_errors, query_generations, noise_references = {}, {}, {}, {}
     with project.lock():
         base = project.base()
         mapping = {topic["topico_id"]: (topic, document) for topic, document in topics(base)}
@@ -434,7 +451,10 @@ def run_comparison(project, request, providers=None):
                         generation["npz_sha256"] = file_hash(input_path)
                         query_generations[profile_id] = generation, query_vector.copy()
                     generation, query_vector = query_generations[profile_id]
-                    snapshot.update(profile=profile, generation=deepcopy(generation), query_vector=query_vector.copy())
+                    if noise_settings["enabled"] and profile_id not in noise_references:
+                        noise_references[profile_id] = capture_noise(project, query_vector, profile, noise_settings, (providers or {}).get(profile_id))
+                    snapshot.update(profile=profile, generation=deepcopy(generation), query_vector=query_vector.copy(),
+                                    noise_reference=deepcopy(noise_references.get(profile_id)))
                     snapshots[key] = snapshot
                     if missing:
                         raise ValueError("Categorias sem índice neste perfil: " + ", ".join(missing))
@@ -454,7 +474,8 @@ def run_comparison(project, request, providers=None):
               "base_checksum": digest(source_snapshot), "base_snapshot": project.relative(folder/"base_snapshot.json"),
               "base_snapshot_checksum": file_hash(folder/"base_snapshot.json"), "experiments": [],
               "configuration": {"experiments": configs,
-                                "analysis": analysis_config}, "analysis_config": analysis_config,
+                                "analysis": analysis_config, "noise_filter": noise_settings}, "analysis_config": analysis_config,
+              "noise_filter": noise_settings,
               "software": _software(),
               "analysis": {"status": "pending" if analysis_config["enabled"] else "disabled"}}
     _execute(output, configs, snapshots, capture_errors, mapping)
@@ -572,6 +593,9 @@ def load_comparison(project, comparison_id, verify=False):
                         continue
                     if file_hash(project.path(space["input_reference"]["arquivo_npz"])) != space["input_checksum"]:
                         raise ValueError("O embedding da entrada foi alterado.")
+                    noise = space.get("noise_reference")
+                    if noise and file_hash(project.path(noise["reference"]["arquivo_npz"])) != noise["checksum"]:
+                        raise ValueError("O embedding da referência de ruído foi alterado.")
                     origin = space.get("input_source_reference")
                     if origin and space.get("input_source_checksum") and file_hash(project.path(origin["arquivo_npz"])) != space["input_source_checksum"]:
                         raise ValueError("O NPZ original dos segmentos da consulta foi alterado.")
@@ -698,6 +722,7 @@ def reproduce_comparison(project, comparison_id):
                     "source_input_checksum": space.get("input_source_checksum"),
                     "segmentos": deepcopy(space.get("input_segments", [])),
                     "agregacao": space.get("input_aggregation")})
+                snapshot["noise_reference"] = deepcopy(space.get("noise_reference"))
                 snapshots[key] = snapshot
         write_json(folder/"base_snapshot.json", source)
     analysis_config = {**original.get("analysis_config", original["configuration"].get("analysis", _analysis())), "enabled": False}
@@ -715,6 +740,9 @@ def reproduce_comparison(project, comparison_id):
     result["reproduction_exact_environment"] = result["software"] == result["original_software"]
     result["warnings"] = [] if result["reproduction_exact_environment"] else [
         "As versões de software diferem da execução original; resultados UMAP/HDBSCAN podem variar."]
+    result["noise_filter"] = deepcopy(original.get("noise_filter", noise_config()))
+    result["configuration"]["noise_filter"] = result["noise_filter"]
+    result["support"] = {"status": "disabled", "answer": "Resposta de apoio não reexecutada na reprodução.", "topic_ids": []}
     _execute(result, configs, snapshots, errors, mapping)
     save_comparison(project, result)
     return result

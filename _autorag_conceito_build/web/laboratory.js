@@ -216,6 +216,8 @@
       return '<aside class="evaluation-note' + (failed ? ' evaluation-error' : value.relevant ? ' relevant' : ' irrelevant') + '"><strong>' + esc(title) + (value.utility_rank ? ' · utilidade ' + esc(value.utility_rank) : '') + '</strong><p>' + esc(value.comment || value.error || '') + '</p><small>' + esc([provenance.provider,provenance.model].filter(Boolean).join(' · ')) + '</small></aside>';
     }
     function render(data, query, target = 'lab') {
+      if (target === 'consultation') state.assistance?.render(data);
+      else if (data.support) inform(data.support.answer || data.support.error || '', data.support.status === 'failed' ? 'warning' : '');
       ui.latest = data; state.results = data; state.resultQuery = query || data.query || '';
       const node = $(target === 'consultation' ? 'consultation-comparisons' : 'lab-comparison-results'); node.hidden = false;
       if (target === 'consultation') { $('results').hidden = true; $('search-empty').hidden = true; $('search-warnings').hidden = true; }
@@ -248,6 +250,7 @@
       node.querySelectorAll('[data-comparison-export]').forEach(button => button.addEventListener('click',() => download(button.dataset.comparisonExport,button.dataset.format)));
       node.querySelector('[data-reproduce-comparison]').addEventListener('click',async event => { event.currentTarget.disabled = true; try { const result = await request('/api/comparisons/' + encodeURIComponent(data.comparison_id) + '/reproduce',{method:'POST',body:{}}); render(result,result.query,target); await refreshHistory(); inform('Recuperação reproduzida com os vetores e índices registrados, sem novas chamadas aos modelos.','success'); } catch(error) { inform(error.message,'error'); message(error.message,'error'); } finally { const button = node.querySelector('[data-reproduce-comparison]'); if(button) button.disabled = false; } });
       node.querySelector('[data-reuse-comparison]').addEventListener('click',() => { reuse(data); navigate('laboratorio'); });
+      if (data.support?.status === 'noise') { const box = document.createElement('p'); box.className = 'message warning'; box.textContent = data.support.answer; node.prepend(box); }
       if (data.warnings?.length) { const box = document.createElement('div'); box.className = 'message warning'; box.textContent = data.warnings.join(' '); node.prepend(box); }
       const analysis = data.analysis || {};
       if (analysis.status === 'failed') message('A recuperação foi salva, mas a análise automática não foi concluída: ' + (analysis.error || ''), 'warning');
@@ -258,7 +261,7 @@
       button.disabled = true; $('comparison-progress').hidden = false; inform('');
       try {
         const bundle = capture();
-        const result = await request('/api/comparisons',{method:'POST',body:{query,experiments:bundle.experiments,analysis:bundle.analysis},progress:text => { $('comparison-progress-label').textContent = text; }});
+        const result = await request('/api/comparisons',{method:'POST',body:{query,experiments:bundle.experiments,analysis:bundle.analysis,noise_filter:state.assistance?.settings().noise_filter},progress:text => { $('comparison-progress-label').textContent = text; }});
         render(result,query); await refreshHistory(); inform('Comparação salva com configurações, resultados e registros de análise disponíveis para download.', 'success');
       } catch(error) { inform(error.message, 'error'); }
       finally { button.disabled = !ui.drafts.length; $('comparison-progress').hidden = true; }
